@@ -278,6 +278,16 @@ cuda::AvgPoolmD::AvgPoolmD(shared_ptr<KernelContext> ctx)
         << join(window_stride, "_") << "_pb" << join(padding_below, "_") << "_pb"
         << join(padding_above, "_");
     custom_tag = tag.str();
+
+    // for kernel codegen
+    std::ofstream fout;
+    std::stringstream codegen_tag;
+    codegen_tag << "cudnn_avgpool_dtype_" << output_type << "|i+" << join(input_shape, "_") << "|o+"
+                << join(output_shape, "_") << "|ws+" << join(window_shape, "_") << "|wst+"
+                << join(window_stride, "_") << "|pb+" << join(padding_below, "_");
+    fout.open("/tmp/nnfusion_rt_avgpool_kernels.txt", std::ios_base::app);
+    fout << codegen_tag.str() << std::endl;
+    fout.close();
 }
 
 LanguageUnit_p cuda::AvgPoolmD::emit_function_body()

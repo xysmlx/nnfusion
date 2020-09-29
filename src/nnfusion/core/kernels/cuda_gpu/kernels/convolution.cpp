@@ -28,6 +28,17 @@ cuda::ConvolutionCudnn::ConvolutionCudnn(shared_ptr<KernelContext> ctx)
         << join(window_movement_strides, "_") << "_wd" << join(window_dilation_strides, "_") << "_p"
         << join(padding_below_diff, "_");
     custom_tag = tag.str();
+
+    // for kernel codegen
+    std::ofstream fout;
+    std::stringstream codegen_tag;
+    codegen_tag << "cudnn_convolution_op_" << dtype << "|i+" << join(input_shape, "_") << "|w+"
+                << join(filter_shape, "_") << "|o+" << join(output_shape, "_") << "|ws+"
+                << join(window_movement_strides, "_") << "|wd+"
+                << join(window_dilation_strides, "_") << "|p+" << join(padding_below_diff, "_");
+    fout.open("/tmp/nnfusion_rt_conv_kernels.txt", std::ios_base::app);
+    fout << codegen_tag.str() << std::endl;
+    fout.close();
 }
 
 LanguageUnit_p cuda::ConvolutionCudnn::emit_function_body()

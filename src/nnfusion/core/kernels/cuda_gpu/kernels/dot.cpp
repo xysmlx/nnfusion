@@ -22,6 +22,16 @@ cuda::Dot::Dot(shared_ptr<KernelContext> ctx)
         << "_dtype_" << dtype.c_type_string() << "_reduction_axes_count_" << reduction_axes << "_i_"
         << join(arg0_shape, "_") << "_i_" << join(arg1_shape, "_");
     custom_tag = tag.str();
+
+    // for kernel codegen
+    std::ofstream fout;
+    std::stringstream codegen_tag;
+    codegen_tag << "cublas_dot_op_" << dtype << "|_reduction_axes_count_+" << reduction_axes
+                << "|arg0_shape+" << join(arg0_shape, "_") << "|arg1_shape+"
+                << join(arg1_shape, "_") << "|out_shape+" << join(out_shape, "_");
+    fout.open("/tmp/nnfusion_rt_dot_kernels.txt", std::ios_base::app);
+    fout << codegen_tag.str() << std::endl;
+    fout.close();
 }
 
 LanguageUnit_p cuda::Dot::emit_function_body()
