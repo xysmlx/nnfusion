@@ -52,6 +52,7 @@
 #include "op/one_hot.hpp"
 #include "op/pad.hpp"
 #include "op/pool.hpp"
+#include "op/range.hpp"
 #include "op/reduce.hpp"
 #include "op/reshape.hpp"
 #include "op/shape.hpp"
@@ -203,6 +204,7 @@ namespace nnfusion
                 REGISTER_OPERATOR("Pad", 1, TranslatePadOp);
                 REGISTER_OPERATOR("Pow", 1, TranslateBinaryOp<op::Power>);
                 //REGISTER_OPERATOR("PRelu", 1, prelu);
+                REGISTER_OPERATOR("Range", 11, TranslateRangeOp);
                 //REGISTER_OPERATOR("Reciprocal", 1, reciprocal);
                 //REGISTER_OPERATOR("ReduceLogSum", 1, reduce_log_sum);
                 //REGISTER_OPERATOR("ReduceLogSumExp", 1, reduce_log_sum_exp);
