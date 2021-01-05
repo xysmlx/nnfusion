@@ -55,6 +55,7 @@
 #include "op/range.hpp"
 #include "op/reduce.hpp"
 #include "op/reshape.hpp"
+#include "op/scatter.hpp"
 #include "op/shape.hpp"
 #include "op/slice.hpp"
 #include "op/softmax.hpp"
@@ -220,6 +221,7 @@ namespace nnfusion
                 REGISTER_OPERATOR("Reshape", 1, TranslateReshapeOp);
                 REGISTER_OPERATOR("ReshapeGrad", 1, TranslateReshapeGradOp);
                 //REGISTER_OPERATOR("Selu", 1, selu);
+                REGISTER_OPERATOR("ScatterND", 11, TranslateScatterNDOp);
                 REGISTER_OPERATOR("Shape", 1, TranslateShapeOp);
                 REGISTER_OPERATOR("Sigmoid", 1, TranslateUnaryOp<op::Sigmoid>);
                 REGISTER_OPERATOR("Sin", 1, TranslateUnaryOp<op::Sin>);

@@ -42,6 +42,8 @@ add_library(onnx_import STATIC
         op/expand.cpp
         op/gather.hpp
         op/gather.cpp
+        op/scatter.hpp
+        op/scatter.cpp
         op/softmax.hpp
         op/softmax.cpp
         op/squeeze.hpp
