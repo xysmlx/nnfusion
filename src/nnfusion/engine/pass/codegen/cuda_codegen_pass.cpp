@@ -936,9 +936,6 @@ void CudaCodegenPass::create_header_file(std::shared_ptr<InterpreterContext> ctx
     lu_header << declaration::typedef_int->get_code() << "\n";
     if (device_type() == CUDA_GPU || device_type() == ROCM_GPU)
         lu_header << header::cuda->get_code();
-    // TODO only include this if half is used
-    if (device_type() == CUDA_GPU)
-        lu_header << header::cuda_fp16->get_code();
 
     lu_header << "extern \"C\" int kernel_entry(";
     std::string params = get_kernel_entry_paras(tu);
@@ -977,7 +974,6 @@ void CudaCodegenPass::create_main_file(std::shared_ptr<InterpreterContext> ctx,
     re_main->require(header::limits);
 
     re_main->require(header::cuda_prof_api);
-    // re_main->require(header::cuda_fp16);
     re_main->require(macro::CUDA_SAFE_CALL);
 
     lu_main << "#include \"nnfusion_rt.h\"\n";
