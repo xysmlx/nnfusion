@@ -4,7 +4,9 @@
 #include "nnfusion/core/operators/generic_op/generic_op.hpp"
 
 REGISTER_OP(SparseDot)
-    .infershape(nnfusion::op::infershape::unimplemented_and_not_used)
+    .infershape([](std::shared_ptr<graph::GNode> curr){
+        // infer the output shape according to input shape for sparse dot
+    })
     .translate([](std::shared_ptr<graph::GNode> curr) -> std::string {
         auto _op = static_pointer_cast<nnfusion::op::Dot>(curr->get_op_ptr());
         NNFUSION_CHECK_NOT_NULLPTR(_op) << "Node type is not " << curr->get_op_ptr()->get_op_type();

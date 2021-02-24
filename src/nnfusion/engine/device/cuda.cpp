@@ -27,7 +27,7 @@
 #include "nnfusion/engine/pass/graph/runtime_const_folding_pass.hpp"
 #include "nnfusion/engine/pass/graph/superscaler_dataparallelism_pass.hpp"
 #include "nnfusion/engine/pass/graph/vector_dot_transpose_pass.hpp"
-
+#include "nnfusion/engine/pass/graph/sparse_kernel_pass.hpp"
 #include "nnfusion/engine/pass/extract_graph_signature.hpp"
 #include "nnfusion/engine/pass/tensor/inplace_tensor_analysis.hpp"
 #include "nnfusion/engine/pass/tensor/liveness_analysis.hpp"
@@ -45,6 +45,7 @@ CudaEngine::CudaEngine()
     : Engine()
 {
     g_passes->push_back(make_shared<CSEPass>());
+    g_passes->push_back(make_shared<SparseKernelPass>());
     g_passes->push_back(make_shared<AutodiffPass>());
     g_passes->push_back(make_shared<GradientWeightMappingPass>());
     g_passes->push_back(make_shared<BertFusionPass>());
