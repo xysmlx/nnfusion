@@ -169,6 +169,7 @@ namespace nnfusion
             element::Type get_type() const { return m_element_type; }
             bool is_constant() const override { return true; }
             bool& is_weight() { return m_is_weight; }
+            Shape get_shape() const {return m_shape; }
         protected:
             template <typename T>
             void write_values(const std::vector<T>& values)
