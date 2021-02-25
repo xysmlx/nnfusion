@@ -57,10 +57,15 @@ private:
             if (src_node->is_constant())
             {
                 // Get the sparsity ratio, if sparsity ratio is larger than a threshold
-                auto weight_constant = std::dynamic_pointer_cast<nnfusion::op::Constant> (src_node->get_op_ptr());
+                auto weight_constant =
+                    std::dynamic_pointer_cast<nnfusion::op::Constant>(src_node->get_op_ptr());
                 auto data_ptr = weight_constant->get_data_ptr();
                 auto m_shape = weight_constant->get_shape();
-                float sparsity_ratio = get_sparsity_ratio<float>(std::static_cast<float*>(data_ptr), nnfusion::shape_size(m_shape), 1e-6);
+                float sparsity_ratio = get_sparsity_ratio<float>(
+                    static_cast<const float*>(data_ptr), nnfusion::shape_size(m_shape), 1e-6);
+                
+                if(sparsity_ratio < 0.9)
+                    continue;
                 assert(data_ptr != nullptr);
                 has_constant = true;
                 break;
@@ -71,29 +76,37 @@ private:
             return;
     }
     template <typename scalar_t>
-    float get_sparsity_ratio(scalar_t* data, size_t n, scalar_t threshold )
+    float get_sparsity_ratio(const scalar_t* data, size_t n, scalar_t threshold)
     {
         int count = 0;
-        for (int i = 0; i < n; i++) {
-            if(data[i]<=threshold)
+        for (int i = 0; i < n; i++)
+        {
+            if (data[i] <= threshold)
                 count++;
         }
-        return count*1.0/n;
+        return count * 1.0 / n;
     }
     template <typename scalar_t>
-    tuple<vector<int>, vector<int>, vector<scalar_t>> convert_to_csr(scalar_t *data, const nnfusion::Shape & m_shape, scalar_t threshold){
-        assert(m_shape.size()==2);
+    tuple<vector<int>, vector<int>, vector<scalar_t>>
+        convert_to_csr(const scalar_t* data, const nnfusion::Shape& m_shape, scalar_t threshold)
+    {
+        assert(m_shape.size() == 2);
         vector<int> row_idx;
-        vector<int> col_idx,
+        vector<int> col_idx;
         vector<scalar_t> values;
-        for(int i=0;i<m_shape[0];i++){
+        for (int i = 0; i < m_shape[0]; i++)
+        {
             row_idx.push_back(values.size());
-            for(int j=0;j<m_shape[1];j++){
+            for (int j = 0; j < m_shape[1]; j++)
+            {
                 size_t pos = i * m_shape[1] + j;
-                if(data<threshold){
+                if (data < threshold)
+                {
                     // sparsity
                     continue;
-                }else{
+                }
+                else
+                {
                     values.push_back(data[pos]);
                     col_idx.push_back(j);
                 }
