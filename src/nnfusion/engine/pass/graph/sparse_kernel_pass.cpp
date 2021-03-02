@@ -19,12 +19,15 @@ DEFINE_bool(sparse_kernel, false, "Sparse Kernel.");
 using namespace nnfusion::graph;
 using namespace nnfusion::pass::graph;
 using namespace nnfusion::kernels;
+using namespace nnfusion::element;
+
 
 class SparseKernelOptimizer
 {
 public:
-    SparseKernelOptimizer(std::shared_ptr<Graph> g)
+    SparseKernelOptimizer(std::shared_ptr<Graph> g, float threshold)
         : m_graph(g)
+        , sparse_threshold(threshold)
     {
     }
     bool Optimize()
@@ -60,13 +63,20 @@ private:
                 auto weight_constant =
                     std::dynamic_pointer_cast<nnfusion::op::Constant>(src_node->get_op_ptr());
                 auto data_ptr = weight_constant->get_data_ptr();
-                auto m_shape = weight_constant->get_shape();
-                float sparsity_ratio = get_sparsity_ratio<float>(
-                    static_cast<const float*>(data_ptr), nnfusion::shape_size(m_shape), 1e-6);
-                
-                if(sparsity_ratio < 0.9)
-                    continue;
                 assert(data_ptr != nullptr);
+                auto m_shape = weight_constant->get_shape();
+                float sparsity_ratio =
+                    get_sparsity_ratio<float>(static_cast<const float*>(data_ptr),
+                                              nnfusion::shape_size(m_shape),
+                                              sparse_threshold);
+                // if sparsity ratio is too low then it's not worth
+                if (sparsity_ratio < 0.9)
+                    continue;
+                std::shared_ptr<vector<int>> row_idx, col_idx;
+                std::shared_ptr<vector<float>> values;
+                std::tie(row_idx, col_idx, values) = convert_to_csr<float>(
+                    static_cast<const float*>(data_ptr), m_shape, sparse_threshold);
+                dot_update_graph<float>(m_graph, in_edge, row_idx, col_idx, values);
                 has_constant = true;
                 break;
             }
@@ -86,17 +96,21 @@ private:
         }
         return count * 1.0 / n;
     }
+
     template <typename scalar_t>
-    tuple<vector<int>, vector<int>, vector<scalar_t>>
+    tuple<std::shared_ptr<vector<int>>,
+          std::shared_ptr<vector<int>>,
+          std::shared_ptr<vector<scalar_t>>>
         convert_to_csr(const scalar_t* data, const nnfusion::Shape& m_shape, scalar_t threshold)
     {
         assert(m_shape.size() == 2);
-        vector<int> row_idx;
-        vector<int> col_idx;
-        vector<scalar_t> values;
+        auto row_idx = std::make_shared<vector<int>>();
+        auto col_idx = std::make_shared<vector<int>>();
+        auto values = std::make_shared<vector<scalar_t>>();
+
         for (int i = 0; i < m_shape[0]; i++)
         {
-            row_idx.push_back(values.size());
+            row_idx->push_back(values.size());
             for (int j = 0; j < m_shape[1]; j++)
             {
                 size_t pos = i * m_shape[1] + j;
@@ -107,16 +121,40 @@ private:
                 }
                 else
                 {
-                    values.push_back(data[pos]);
-                    col_idx.push_back(j);
+                    values->push_back(data[pos]);
+                    col_idx->push_back(j);
                 }
             }
         }
-        row_idx.push_back(values.size());
+        row_idx->push_back(values.size());
         return std::make_tuple(row_idx, col_idx, values);
+    }
+    template <typename scalar_t>
+    void dot_update_graph(std::shared_ptr<Graph> pgraph,
+                          std::shared_ptr<Edge> in_edge,
+                          std::shared_ptr<vector<int>> row_idx,
+                          std::shared_ptr<vector<int>> col_idx,
+                          std::shared_ptr<vector<scalar_t>> values)
+    {
+        std::shared_ptr<GNode> src_node = in_edge->get_src();
+        std::shared_ptr<GNode> dst_node = in_edge->get_dst();
+        //create the constant nodes for the csr format weight
+        auto row_idx_cons = std::make_shared<op::Constant<int>>(i32, nnfusion::Shape({row_idx->size()}), *row_idx);
+        auto row_idx_node = std::make_shared<GNode>(row_idx_cons, GNodeVector({}));
+        auto col_idx_cons = std::make_shared<op::Constant<int>>(i32, nnfusion::Shape({col_idx->size()}), *col_idx);
+        auto col_idx_node = std::make_shared<GNode>(col_idx_cons, GNodeVector({}));
+        auto values_cons = std::make_shared<op::Constant<scalar_t>>(from<scalar_t>, nnfusion::Shape({values->size()}), *values);
+        auto values_node = std::make_shared<GNode>(values_cons, GNodeVector({}));
+        auto sparse_op = std::make_shared<op::SparseDot>();
+        auto sparse_dot_node = std::make_shared<GNode>
+        pgraph->remove_edge(in_edge);
+        pgraph->remove_node(src_node);
+        pgraph->remove_node(dst_node);
+        //Also remove the input for dst_node
     }
 
     std::shared_ptr<Graph> m_graph;
+    float sparse_threshold;
 };
 
 bool SparseKernelPass::run_on_graph(std::shared_ptr<Graph>& graph)
@@ -125,6 +163,6 @@ bool SparseKernelPass::run_on_graph(std::shared_ptr<Graph>& graph)
     if (!enable_sparse_kernel)
         return true;
     NNFUSION_LOG(INFO) << "Enable the Sparse kernels";
-    SparseKernelOptimizer optimizer(graph);
+    SparseKernelOptimizer optimizer(graph, 1e-6);
     return optimizer.Optimize();
 }
