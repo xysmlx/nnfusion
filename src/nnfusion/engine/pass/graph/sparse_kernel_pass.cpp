@@ -110,11 +110,11 @@ private:
 
         for (int i = 0; i < m_shape[0]; i++)
         {
-            row_idx->push_back(values.size());
+            row_idx->push_back(values->size());
             for (int j = 0; j < m_shape[1]; j++)
             {
                 size_t pos = i * m_shape[1] + j;
-                if (data < threshold)
+                if (data[pos] < threshold)
                 {
                     // sparsity
                     continue;
@@ -126,7 +126,7 @@ private:
                 }
             }
         }
-        row_idx->push_back(values.size());
+        row_idx->push_back(values->size());
         return std::make_tuple(row_idx, col_idx, values);
     }
     template <typename scalar_t>
@@ -139,14 +139,14 @@ private:
         std::shared_ptr<GNode> src_node = in_edge->get_src();
         std::shared_ptr<GNode> dst_node = in_edge->get_dst();
         //create the constant nodes for the csr format weight
-        auto row_idx_cons = std::make_shared<op::Constant<int>>(i32, nnfusion::Shape({row_idx->size()}), *row_idx);
+        auto row_idx_cons = std::make_shared<op::Constant>(i32, nnfusion::Shape({row_idx->size()}), *row_idx);
         auto row_idx_node = std::make_shared<GNode>(row_idx_cons, GNodeVector({}));
-        auto col_idx_cons = std::make_shared<op::Constant<int>>(i32, nnfusion::Shape({col_idx->size()}), *col_idx);
+        auto col_idx_cons = std::make_shared<op::Constant>(i32, nnfusion::Shape({col_idx->size()}), *col_idx);
         auto col_idx_node = std::make_shared<GNode>(col_idx_cons, GNodeVector({}));
-        auto values_cons = std::make_shared<op::Constant<scalar_t>>(from<scalar_t>, nnfusion::Shape({values->size()}), *values);
+        auto values_cons = std::make_shared<op::Constant>(from<scalar_t>, nnfusion::Shape({values->size()}), *values);
         auto values_node = std::make_shared<GNode>(values_cons, GNodeVector({}));
         auto sparse_op = std::make_shared<op::SparseDot>();
-        auto sparse_dot_node = std::make_shared<GNode>
+        // auto sparse_dot_node = std::make_shared<GNode>
         pgraph->remove_edge(in_edge);
         pgraph->remove_node(src_node);
         pgraph->remove_node(dst_node);
