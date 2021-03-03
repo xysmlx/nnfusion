@@ -30,6 +30,6 @@ namespace nnfusion{
             bool m_has_reduction_axes_count;
             bool m_transpose_A = false;
             bool m_transpose_B = false;
-        }
+        };
     }
 }
