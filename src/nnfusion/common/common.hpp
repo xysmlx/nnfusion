@@ -102,6 +102,7 @@
 #include "nnfusion/core/operators/op_define/tanh.hpp"
 #include "nnfusion/core/operators/op_define/topk.hpp"
 #include "nnfusion/core/operators/op_define/variable.hpp"
+#include "nnfusion/core/operators/op_define/sparsedot.hpp"
 
 #define ktrace()                                                                                   \
     {                                                                                              \

@@ -146,6 +146,7 @@ private:
         auto values_cons = std::make_shared<op::Constant>(from<scalar_t>, nnfusion::Shape({values->size()}), *values);
         auto values_node = std::make_shared<GNode>(values_cons, GNodeVector({}));
         auto sparse_op = std::make_shared<op::SparseDot>();
+        auto dense_op = dst_node->get_op_ptr();
         // auto sparse_dot_node = std::make_shared<GNode>
         pgraph->remove_edge(in_edge);
         pgraph->remove_node(src_node);
