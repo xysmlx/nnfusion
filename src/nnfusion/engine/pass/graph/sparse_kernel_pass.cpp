@@ -132,18 +132,18 @@ private:
     template <typename scalar_t>
     void dot_update_graph(std::shared_ptr<Graph> pgraph,
                           std::shared_ptr<Edge> in_edge,
-                          std::shared_ptr<const vector<int>> row_idx,
-                          std::shared_ptr<const vector<int>> col_idx,
-                          std::shared_ptr<const vector<scalar_t>> values)
+                          std::shared_ptr<vector<int>> row_idx,
+                          std::shared_ptr<vector<int>> col_idx,
+                          std::shared_ptr<vector<scalar_t>> values)
     {
         std::shared_ptr<GNode> src_node = in_edge->get_src();
         std::shared_ptr<GNode> dst_node = in_edge->get_dst();
         //create the constant nodes for the csr format weight
-        auto row_idx_cons = std::make_shared<op::Constant<int>>(i32, nnfusion::Shape({row_idx->size()}), *row_idx);
+        auto row_idx_cons = std::make_shared<op::Constant<int>>(i32, nnfusion::Shape({row_idx->size()}), (void*)row_idx->data());
         auto row_idx_node = std::make_shared<GNode>(row_idx_cons, GNodeVector({}));
-        auto col_idx_cons = std::make_shared<op::Constant<int>>(i32, nnfusion::Shape({col_idx->size()}), *col_idx);
+        auto col_idx_cons = std::make_shared<op::Constant<int>>(i32, nnfusion::Shape({col_idx->size()}), (void*)col_idx->data());
         auto col_idx_node = std::make_shared<GNode>(col_idx_cons, GNodeVector({}));
-        auto values_cons = std::make_shared<op::Constant<scalar_t>>(from<scalar_t>, nnfusion::Shape({values->size()}), *values);
+        auto values_cons = std::make_shared<op::Constant<scalar_t>>(from<scalar_t>, nnfusion::Shape({values->size()}), (void*)values->data());
         auto values_node = std::make_shared<GNode>(values_cons, GNodeVector({}));
         auto sparse_op = std::make_shared<op::SparseDot>();
         auto dense_op = dst_node->get_op_ptr();
