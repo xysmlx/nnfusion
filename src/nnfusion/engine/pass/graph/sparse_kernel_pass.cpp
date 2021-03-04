@@ -174,7 +174,7 @@ private:
         //     }
         // }
         pgraph->remove_node(src_node);
-        pgraph->remove_node(dst_node);
+        // pgraph->remove_node(dst_node);
 
     }
 
