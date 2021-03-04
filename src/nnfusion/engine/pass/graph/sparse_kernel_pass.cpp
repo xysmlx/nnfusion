@@ -132,9 +132,9 @@ private:
     template <typename scalar_t>
     void dot_update_graph(std::shared_ptr<Graph> pgraph,
                           std::shared_ptr<Edge> in_edge,
-                          std::shared_ptr<vector<int>> row_idx,
-                          std::shared_ptr<vector<int>> col_idx,
-                          std::shared_ptr<vector<scalar_t>> values)
+                          std::shared_ptr<const vector<int>> row_idx,
+                          std::shared_ptr<const vector<int>> col_idx,
+                          std::shared_ptr<const vector<scalar_t>> values)
     {
         std::shared_ptr<GNode> src_node = in_edge->get_src();
         std::shared_ptr<GNode> dst_node = in_edge->get_dst();
