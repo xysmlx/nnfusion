@@ -164,9 +164,9 @@ private:
 
 bool SparseKernelPass::run_on_graph(std::shared_ptr<Graph>& graph)
 {
-    bool enable_sparse_kernel = FLAGS_sparse_kernel;
-    if (!enable_sparse_kernel)
-        return true;
+    // bool enable_sparse_kernel = FLAGS_sparse_kernel;
+    // if (!enable_sparse_kernel)
+    //     return true;
     NNFUSION_LOG(INFO) << "Enable the Sparse kernels";
     SparseKernelOptimizer optimizer(graph, 1e-6);
     return optimizer.Optimize();
