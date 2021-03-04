@@ -147,6 +147,10 @@ private:
         auto values_node = std::make_shared<GNode>(values_cons, GNodeVector({}));
         auto sparse_op = std::make_shared<op::SparseDot>();
         auto dense_op = dst_node->get_op_ptr();
+        pgraph->add_node(row_idx_node);
+        pgraph->add_node(col_idx_node);
+        pgraph->add_node(values_node);
+
         auto sparse_node = std::make_shared<GNode>(sparse_op, GNodeVector({row_idx_node, col_idx_node, values_node}));
         auto ori_output = dst_node->get_outputs();
         // just copy the output from the original dense node
