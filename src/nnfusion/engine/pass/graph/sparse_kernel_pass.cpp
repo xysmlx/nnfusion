@@ -139,11 +139,11 @@ private:
         std::shared_ptr<GNode> src_node = in_edge->get_src();
         std::shared_ptr<GNode> dst_node = in_edge->get_dst();
         //create the constant nodes for the csr format weight
-        auto row_idx_cons = std::make_shared<op::Constant>(i32, nnfusion::Shape({row_idx->size()}), *row_idx);
+        auto row_idx_cons = std::make_shared<op::Constant<int>>(i32, nnfusion::Shape({row_idx->size()}), *row_idx);
         auto row_idx_node = std::make_shared<GNode>(row_idx_cons, GNodeVector({}));
-        auto col_idx_cons = std::make_shared<op::Constant>(i32, nnfusion::Shape({col_idx->size()}), *col_idx);
+        auto col_idx_cons = std::make_shared<op::Constant<int>>(i32, nnfusion::Shape({col_idx->size()}), *col_idx);
         auto col_idx_node = std::make_shared<GNode>(col_idx_cons, GNodeVector({}));
-        auto values_cons = std::make_shared<op::Constant>(from<scalar_t>, nnfusion::Shape({values->size()}), *values);
+        auto values_cons = std::make_shared<op::Constant<scalar_t>>(from<scalar_t>, nnfusion::Shape({values->size()}), *values);
         auto values_node = std::make_shared<GNode>(values_cons, GNodeVector({}));
         auto sparse_op = std::make_shared<op::SparseDot>();
         auto dense_op = dst_node->get_op_ptr();
