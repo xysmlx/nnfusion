@@ -76,7 +76,7 @@ private:
                 std::shared_ptr<vector<float>> values;
                 std::tie(row_idx, col_idx, values) = convert_to_csr<float>(
                     static_cast<const float*>(data_ptr), m_shape, sparse_threshold);
-                dot_update_graph<float>(m_graph, in_edge, row_idx, col_idx, values);
+                insert_sparse_dot<float>(m_graph, in_edge, row_idx, col_idx, values);
                 has_constant = true;
                 break;
             }
@@ -130,7 +130,7 @@ private:
         return std::make_tuple(row_idx, col_idx, values);
     }
     template <typename scalar_t>
-    void dot_update_graph(std::shared_ptr<Graph> pgraph,
+    void insert_sparse_dot(std::shared_ptr<Graph> pgraph,
                           std::shared_ptr<Edge> in_edge,
                           std::shared_ptr<vector<int>> row_idx,
                           std::shared_ptr<vector<int>> col_idx,
@@ -147,11 +147,15 @@ private:
         auto values_node = std::make_shared<GNode>(values_cons, GNodeVector({}));
         auto sparse_op = std::make_shared<op::SparseDot>();
         auto dense_op = dst_node->get_op_ptr();
-        // auto sparse_dot_node = std::make_shared<GNode>
-        pgraph->remove_edge(in_edge);
+        auto sparse_node = std::make_shared<GNode>(sparse_op, GNodeVector({row_idx_node, col_idx_node, values_node}));
+        auto ori_output = dst_node->get_outputs();
+        // just copy the output from the original dense node
+        for(int i=0;i<ori_output.size();i++)
+            sparse_node->set_output(i, ori_output[i]);
+        // insert the sparse node into the original graph
+        pgraph->replace_node(dst_node, sparse_node, false);
         pgraph->remove_node(src_node);
-        pgraph->remove_node(dst_node);
-        //Also remove the input for dst_node
+
     }
 
     std::shared_ptr<Graph> m_graph;
