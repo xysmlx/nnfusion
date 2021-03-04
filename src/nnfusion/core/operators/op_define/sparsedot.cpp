@@ -27,5 +27,6 @@ SparseDot::SparseDot(size_t reduction_axes_count, bool has_reduction_axes_count,
 void SparseDot::validate_and_infer_types(std::shared_ptr<graph::GNode> gnode)
 {
     // No need to infer the output shape and type again, should
-    throw "Shape inference of sparsedot is not implemented yet";
+    // throw "Shape inference of sparsedot is not implemented yet";
+    return;
 }
