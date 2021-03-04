@@ -152,13 +152,27 @@ private:
         pgraph->add_node(values_node);
 
         auto sparse_node = std::make_shared<GNode>(sparse_op, GNodeVector({row_idx_node, col_idx_node, values_node}));
+        pgraph->add_node_and_edge(sparse_node, GNodeVector({row_idx_node, col_idx_node, values_node}));
+        //
         auto ori_output = dst_node->get_outputs();
         // just copy the output from the original dense node
         for(int i=0;i<ori_output.size();i++)
             sparse_node->set_output(i, ori_output[i]);
         // insert the sparse node into the original graph
-        pgraph->replace_node(dst_node, sparse_node, false);
+        // pgraph->replace_node(dst_node, sparse_node, false);
+        for (auto& edge : dst_node->get_out_edges())
+        {
+            if (edge->is_control_edge())
+            {
+                add_control_edge(sparse_node, edge->get_dst());
+            }
+            else
+            {
+                add_edge(sparse_node, 0, edge->get_dst(), edge->get_dst_input());
+            }
+        }
         pgraph->remove_node(src_node);
+        pgraph->remove_node(dst_node);
 
     }
 
