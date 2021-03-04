@@ -162,19 +162,8 @@ private:
             sparse_node->set_output(i, ori_output[i]);
         // insert the sparse node into the original graph
         pgraph->replace_node(dst_node, sparse_node, false);
-        // for (auto& edge : dst_node->get_out_edges())
-        // {
-        //     if (edge->is_control_edge())
-        //     {
-        //         add_control_edge(sparse_node, edge->get_dst());
-        //     }
-        //     else
-        //     {
-        //         add_edge(sparse_node, 0, edge->get_dst(), edge->get_dst_input());
-        //     }
-        // }
         pgraph->remove_node(src_node);
-        // pgraph->remove_node(dst_node);
+        
 
     }
 
