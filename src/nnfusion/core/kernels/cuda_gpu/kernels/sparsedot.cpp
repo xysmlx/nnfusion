@@ -12,7 +12,7 @@ cuda::SparseDot::SparseDot(shared_ptr<KernelContext> ctx)
     auto dot_op = static_pointer_cast<nnfusion::op::SparseDot>(ctx->gnode->get_op_ptr());
 
     // reduction_axes = dot_op->get_reduction_axes_count();
-    arg0_shape = nnfusion::Shape(ctx->inputs[0]->get_shape());
+    // arg0_shape = nnfusion::Shape(ctx->inputs[0]->get_shape());
     // arg1_shape = nnfusion::Shape(ctx->inputs[1]->get_shape());
     // out_shape = nnfusion::Shape(ctx->outputs[0]->get_shape());
     // dtype = nnfusion::element::Type(ctx->outputs[0]->get_element_type());
@@ -81,8 +81,26 @@ LanguageUnit_p cuda::SparseDot::emit_function_signature()
     LanguageUnit_p _lu(new LanguageUnit(this->m_kernel_name + "_sig"));
     auto& lu = *_lu;
 
-    lu << "This is Signature here ";
+    vector<string> params;
+    for (size_t i = 0; i < m_context->inputs.size(); i++)
+    {
+        stringstream ss;
+        ss << m_context->inputs[i]->get_element_type().c_type_string() << "* ";
+        ss << "input" << i;
+        params.push_back(ss.str());
+    }
+
+    for (size_t i = 0; i < m_context->outputs.size(); i++)
+    {
+        stringstream ss;
+        ss << m_context->outputs[i]->get_element_type().c_type_string() << "* ";
+        ss << "output" << i;
+        params.push_back(ss.str());
+    }
+    lu << "void "
+    << "(cublasHandle_t cublas_handle, " << join(params, ", ") << ")";
     return _lu;
+
 }
 
 REGISTER_KERNEL_EMITTER(
