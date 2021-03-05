@@ -42,6 +42,26 @@ LanguageUnit_p cuda::SparseDot::emit_function_body()
     return _lu;
 }
 
+LanguageUnit_p cuda::SparseDot::emit_comments()
+{
+    auto& ctx = m_context;
+    // auto gemm = static_pointer_cast<nnfusion::op::Dot>(ctx->gnode->get_op_ptr());
+    // auto trans_A = gemm->get_transpose_A();
+    // auto trans_B = gemm->get_transpose_B();
+    // auto dtype = ctx->outputs[0]->get_element_type();
+
+    LanguageUnit_p _lu(new LanguageUnit(get_function_name()));
+    auto& lu = *_lu;
+
+    // function signature:
+    // void kernel(m_context->dtypes[0]* input0, m_context->dtypes[0]* input1, m_context->dtypes[2]* output0)
+
+    //lu.block_begin();
+    lu<<"//SparseDot function commments here";
+    //lu.block_end();
+    return _lu;
+}
+
 LanguageUnit_p cuda::SparseDot::emit_dependency()
 {
     LanguageUnit_p _lu(new LanguageUnit(get_function_name() + "_dep"));
