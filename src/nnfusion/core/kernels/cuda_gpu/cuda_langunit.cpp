@@ -128,6 +128,38 @@ LU_DEFINE(
    )");
 
 LU_DEFINE(
+    macro::CUSPARSE_SAFE_CALL_NO_THROW,
+    R"(#define CUSPARSE_SAFE_CALL_NO_THROW(func)                                                            \
+    do                                                                                             \
+    {                                                                                              \
+        cusparseStatus_t e = (func);                                                                 \
+        if (e != CUSPARSE_STATUS_SUCCESS)                                                            \
+        {                                                                                          \
+            std::stringstream safe_call_ss;                                                        \
+            safe_call_ss << "\nerror: " #func " failed with error"                                 \
+                         << "\nfile: " << __FILE__ << "\nline: " << __LINE__ << "\nmsg: " << e;    \
+            std::cout << safe_call_ss.str() << std::endl;                                          \
+        }                                                                                          \
+    } while (0)
+    )");
+
+LU_DEFINE(
+    macro::CUSPARSE_SAFE_CALL,
+    R"(#define CUSPARSE_SAFE_CALL(func)                                                                     \
+    do                                                                                             \
+    {                                                                                              \
+        cusparseStatus_t e = (func);                                                                 \
+        if (e != CUSPARSE_STATUS_SUCCESS)                                                            \
+        {                                                                                          \
+            std::stringstream safe_call_ss;                                                        \
+            safe_call_ss << "\nerror: " #func " failed with error"                                 \
+                         << "\nfile: " << __FILE__ << "\nline: " << __LINE__ << "\nmsg: " << e;    \
+            throw std::runtime_error(safe_call_ss.str());                                          \
+        }                                                                                          \
+    } while (0)
+   )");
+
+LU_DEFINE(
     macro::CUDA_SAFE_LAUNCH,
     R"(#define CUDA_SAFE_LAUNCH(x)                                                                       \
     do                                                                                             \

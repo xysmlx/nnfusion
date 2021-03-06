@@ -69,8 +69,9 @@ LanguageUnit_p cuda::SparseDot::emit_dependency()
     _lu->require(header::cublas);
     _lu->require(header::stdexcept);
     _lu->require(header::sstream);
-    _lu->require(macro::CUBLAS_SAFE_CALL);
+    _lu->require(macro::CUSPARSE_SAFE_CALL);
     _lu->require(macro::CUDA_SAFE_CALL);
+
     // _lu->require(declaration::cuda_fp16_scale);
     //_lu->require(declaration::cublas_handle);
     return _lu;

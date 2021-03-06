@@ -30,6 +30,8 @@ namespace nnfusion
             LU_DECLARE(CUDNN_SAFE_CALL);
             LU_DECLARE(CUBLAS_SAFE_CALL_NO_THROW);
             LU_DECLARE(CUBLAS_SAFE_CALL);
+            LU_DECLARE(CUSPARSE_SAFE_CALL_NO_THROW);
+            LU_DECLARE(CUSPARSE_SAFE_CALL);
             LU_DECLARE(CUDA_SAFE_LAUNCH);
             LU_DECLARE(CUPTI_CALL);
         } // namespace macro
