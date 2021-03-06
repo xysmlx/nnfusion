@@ -24,7 +24,7 @@ SparseDot::SparseDot(size_t reduction_axes_count, bool has_reduction_axes_count,
 {
 }
 
-SparseDot::SparseDot(Dot ori_dot){
+SparseDot::SparseDot(shared_ptr<Dot> ori_dot) {
 
 }
 

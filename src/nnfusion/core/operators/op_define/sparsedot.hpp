@@ -16,7 +16,7 @@ namespace nnfusion{
             bool trans_a = false,
             bool trans_b = false);
             SparseDot();
-            SparseDot(Dot ori_dot);
+            SparseDot(std::shared_ptr<Dot> ori_dot);
     
             void validate_and_infer_types(std::shared_ptr<graph::GNode>) override;
             size_t get_reduction_axes_count() const { return m_reduction_axes_count; }
