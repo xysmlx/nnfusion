@@ -25,10 +25,10 @@ cuda::SparseDot::SparseDot(shared_ptr<KernelContext> ctx)
 LanguageUnit_p cuda::SparseDot::emit_function_body()
 {
     auto& ctx = m_context;
-    // auto gemm = static_pointer_cast<nnfusion::op::Dot>(ctx->gnode->get_op_ptr());
-    // auto trans_A = gemm->get_transpose_A();
-    // auto trans_B = gemm->get_transpose_B();
-    // auto dtype = ctx->outputs[0]->get_element_type();
+    gemm =  static_pointer_cast<nnfusion::op::SparseDot>(ctx->gnode->get_op_ptr());
+    auto trans_A = gemm->get_transpose_A();
+    auto trans_B = gemm->get_transpose_B();
+    auto sparse_idx = gemm->get_sparse_index();
 
     LanguageUnit_p _lu(new LanguageUnit(get_function_name()));
     auto& lu = *_lu;

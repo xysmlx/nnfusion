@@ -24,6 +24,10 @@ SparseDot::SparseDot(size_t reduction_axes_count, bool has_reduction_axes_count,
 {
 }
 
+SparseDot::SparseDot(Dot ori_dot){
+
+}
+
 void SparseDot::validate_and_infer_types(std::shared_ptr<graph::GNode> gnode)
 {
     // No need to infer the output shape and type again, should
