@@ -45,19 +45,13 @@ LanguageUnit_p cuda::SparseDot::emit_function_body()
 LanguageUnit_p cuda::SparseDot::emit_comments()
 {
     auto& ctx = m_context;
-    // auto gemm = static_pointer_cast<nnfusion::op::Dot>(ctx->gnode->get_op_ptr());
-    // auto trans_A = gemm->get_transpose_A();
-    // auto trans_B = gemm->get_transpose_B();
-    // auto dtype = ctx->outputs[0]->get_element_type();
+
 
     LanguageUnit_p _lu(new LanguageUnit(get_function_name()));
     auto& lu = *_lu;
 
-    // function signature:
-    // void kernel(m_context->dtypes[0]* input0, m_context->dtypes[0]* input1, m_context->dtypes[2]* output0)
 
-    //lu.block_begin();
-    lu<<"//SparseDot function commments here";
+    lu<<"//SparseDot function commments here\n";
     //lu.block_end();
     return _lu;
 }
@@ -69,6 +63,7 @@ LanguageUnit_p cuda::SparseDot::emit_dependency()
     _lu->require(header::cublas);
     _lu->require(header::stdexcept);
     _lu->require(header::sstream);
+    _lu->require(header::cusparse);
     _lu->require(macro::CUSPARSE_SAFE_CALL);
     _lu->require(macro::CUDA_SAFE_CALL);
 
@@ -99,7 +94,7 @@ LanguageUnit_p cuda::SparseDot::emit_function_signature()
         params.push_back(ss.str());
     }
     lu << "void "
-    << "(cublasHandle_t cublas_handle, " << join(params, ", ") << ")";
+    << "(cusparseHandle_t cusparse_handle, " << join(params, ", ") << ")";
     return _lu;
 
 }
