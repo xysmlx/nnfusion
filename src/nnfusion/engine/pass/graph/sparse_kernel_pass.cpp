@@ -21,7 +21,6 @@ using namespace nnfusion::pass::graph;
 using namespace nnfusion::kernels;
 using namespace nnfusion::element;
 
-
 class SparseKernelOptimizer
 {
 public:
@@ -131,63 +130,76 @@ private:
     }
     template <typename scalar_t>
     void insert_sparse_dot(std::shared_ptr<Graph> pgraph,
-                          std::shared_ptr<Edge> in_edge,
-                          std::shared_ptr<vector<int32_t>> row_idx,
-                          std::shared_ptr<vector<int32_t>> col_idx,
-                          std::shared_ptr<vector<scalar_t>> values)
+                           std::shared_ptr<Edge> in_edge,
+                           std::shared_ptr<vector<int32_t>> row_idx,
+                           std::shared_ptr<vector<int32_t>> col_idx,
+                           std::shared_ptr<vector<scalar_t>> values)
     {
         std::shared_ptr<GNode> src_node = in_edge->get_src();
         std::shared_ptr<GNode> dst_node = in_edge->get_dst();
         //create the constant nodes for the csr format weight
-        auto row_idx_cons = std::make_shared<op::Constant>(from<int32_t>(), nnfusion::Shape({row_idx->size()}), (void*)row_idx->data());
-	auto row_idx_node = std::make_shared<GNode>(row_idx_cons, GNodeVector({}));
-	row_idx_node->get_op_ptr()->revalidate_and_infer_types(row_idx_node->shared_from_this());
-	auto row_shape = row_idx_cons->get_shape();
-	auto row_type = row_idx_cons->get_type();
-	auto row_out = row_idx_node->get_output_tensor_ptr(0);
-	std::cout<<"row_out "<< row_out->get_name()<<std::endl;
-	std::cout<<"row_out"<<row_out->get_shape()<<std::endl;
-	std::cout<<row_shape<<"  "<<row_type<<"%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%"<<endl;
-        auto col_idx_cons = std::make_shared<op::Constant>(from<int32_t>(), nnfusion::Shape({col_idx->size()}), (void*)col_idx->data());
+        auto row_idx_cons = std::make_shared<op::Constant>(
+            from<int32_t>(), nnfusion::Shape({row_idx->size()}), (void*)row_idx->data());
+        auto row_idx_node = std::make_shared<GNode>(row_idx_cons, GNodeVector({}));
+        row_idx_node->get_op_ptr()->revalidate_and_infer_types(row_idx_node->shared_from_this());
+        // auto row_shape = row_idx_cons->get_shape();
+        // auto row_type = row_idx_cons->get_type();
+        // auto row_out = row_idx_node->get_output_tensor_ptr(0);
+        // std::cout<<"row_out "<< row_out->get_name()<<std::endl;
+        // std::cout<<"row_out"<<row_out->get_shape()<<std::endl;
+        // std::cout<<row_shape<<"  "<<row_type<<"%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%"<<endl;
+        auto col_idx_cons = std::make_shared<op::Constant>(
+            from<int32_t>(), nnfusion::Shape({col_idx->size()}), (void*)col_idx->data());
         auto col_idx_node = std::make_shared<GNode>(col_idx_cons, GNodeVector({}));
-	col_idx_node->get_op_ptr()->revalidate_and_infer_types(col_idx_node->shared_from_this());
-        auto values_cons = std::make_shared<op::Constant>(from<scalar_t>(), nnfusion::Shape({values->size()}), (void*)values->data());
+        col_idx_node->get_op_ptr()->revalidate_and_infer_types(col_idx_node->shared_from_this());
+        auto values_cons = std::make_shared<op::Constant>(
+            from<scalar_t>(), nnfusion::Shape({values->size()}), (void*)values->data());
         auto values_node = std::make_shared<GNode>(values_cons, GNodeVector({}));
-	values_node->get_op_ptr()->revalidate_and_infer_types(values_node->shared_from_this());
-        auto sparse_op = std::make_shared<op::SparseDot>();
-        auto dense_op = dst_node->get_op_ptr();
+        values_node->get_op_ptr()->revalidate_and_infer_types(values_node->shared_from_this());
+        auto dense_op = dst_node->get_op_ptr(); // The original dense gemm op
+
         pgraph->add_node(row_idx_node);
         pgraph->add_node(col_idx_node);
         pgraph->add_node(values_node);
 
-        auto sparse_node = std::make_shared<GNode>(sparse_op, GNodeVector({row_idx_node, col_idx_node, values_node}));
-        pgraph->add_edge(row_idx_node,0, sparse_node, 0);
-        pgraph->add_edge(col_idx_node,0, sparse_node, 1);
-        pgraph->add_edge(values_node,0, sparse_node, 2);
-	auto _inputs = sparse_node->get_inputs();
-	std::cout<<"Sparse Node input size "<< sparse_node->get_input_size()<<std::endl;
-	for(size_t i =0;i<sparse_node->get_input_size();i++){
-		auto ptr = sparse_node->get_input_tensor_ptr(i);
-		std::cout<<"Input "<<i<<std::endl;
-		std::cout<<ptr->get_name()<<std::endl;
-		std::cout<<ptr->get_shape()<<std::endl;
-	}
-	for(auto _i : _inputs){
+        auto dst_pos = in_edge->get_dst_input();
+        int32_t other_input = 1-dst_pos;
+        auto other_node = dst_node->get_in_edge(other_input).get_src();
+        auto input_gv=std::make_shared<GNodeVector>({row_idx_node, col_idx_node, values_node, other_input});
+        auto sparse_op = std::make_shared<op::SparseDot>(dense_op, dst_pos);
 
-		std::cout<<" ###########"<<std::endl;
-		std::cout<<_i->get_shape()<<"   "<<_i->get_element_type()<<std::endl;
-	}
+        auto sparse_node = std::make_shared<GNode>(
+            sparse_op, input_gv);
+        for(int i=0;i<input_gv->size();i++){
+            pgraph->add_edge(input_gv->at(i), 0, sparse_node, i);
+        }
+        // pgraph->add_edge(row_idx_node, 0, sparse_node, 0);
+        // pgraph->add_edge(col_idx_node, 0, sparse_node, 1);
+        // pgraph->add_edge(values_node, 0, sparse_node, 2);
+        // pgraph->add_edge(values_node, 0, sparse_node, 2);
+        // auto _inputs = sparse_node->get_inputs();
+        // std::cout << "Sparse Node input size " << sparse_node->get_input_size() << std::endl;
+        // for (size_t i = 0; i < sparse_node->get_input_size(); i++)
+        // {
+        //     auto ptr = sparse_node->get_input_tensor_ptr(i);
+        //     std::cout << "Input " << i << std::endl;
+        //     std::cout << ptr->get_name() << std::endl;
+        //     std::cout << ptr->get_shape() << std::endl;
+        // }
+        // for (auto _i : _inputs)
+        // {
+        //     std::cout << " ###########" << std::endl;
+        //     std::cout << _i->get_shape() << "   " << _i->get_element_type() << std::endl;
+        // }
 
-	// pgraph->add_node_and_edge(sparse_node, GNodeVector({row_idx_node, col_idx_node, values_node}));
+        // pgraph->add_node_and_edge(sparse_node, GNodeVector({row_idx_node, col_idx_node, values_node}));
         auto ori_output = dst_node->get_outputs();
         // just copy the output from the original dense node
-        for(int i=0;i<ori_output.size();i++)
+        for (int i = 0; i < ori_output.size(); i++)
             sparse_node->set_output(i, ori_output[i]);
         // insert the sparse node into the original graph
         pgraph->replace_node(dst_node, sparse_node, false);
         pgraph->remove_node(src_node);
-        
-
     }
 
     std::shared_ptr<Graph> m_graph;

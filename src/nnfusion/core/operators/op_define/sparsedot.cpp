@@ -15,16 +15,24 @@ SparseDot::SparseDot()
 {
 }
 
-SparseDot::SparseDot(size_t reduction_axes_count, bool has_reduction_axes_count, bool trans_a, bool trans_b)
+SparseDot::SparseDot(size_t reduction_axes_count, bool has_reduction_axes_count, bool trans_a, bool trans_b, size_t sparse_index)
     : Op("SparseDot")
     , m_reduction_axes_count(reduction_axes_count)
     , m_has_reduction_axes_count(has_reduction_axes_count)
     , m_transpose_A(trans_a)
     , m_transpose_B(trans_b)
+    , m_sparse_index(sparse_index)
 {
 }
 
-SparseDot::SparseDot(shared_ptr<Dot> ori_dot) {
+SparseDot::SparseDot(shared_ptr<Dot> ori_dot, size_t sparse_index)
+    : Op("SparseDot")
+    , m_sparse_index(sparse_index)
+// Initialize the SparseDot Op according to the original Dot Op
+{
+    m_reduction_axes_count = ori_dot->get_reduction_axes_count();
+    m_transpose_A = ori_dot->get_transpose_A();
+    m_transpose_B = ori_dot->get_transpose_B();
 
 }
 
