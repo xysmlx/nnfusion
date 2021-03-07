@@ -156,22 +156,22 @@ private:
             from<scalar_t>(), nnfusion::Shape({values->size()}), (void*)values->data());
         auto values_node = std::make_shared<GNode>(values_cons, GNodeVector({}));
         values_node->get_op_ptr()->revalidate_and_infer_types(values_node->shared_from_this());
-        auto dense_op = dst_node->get_op_ptr(); // The original dense gemm op
+        auto dense_op = std::dynamic_pointer_cast<op::Dot>(dst_node->get_op_ptr()); // The original dense gemm op
 
         pgraph->add_node(row_idx_node);
         pgraph->add_node(col_idx_node);
         pgraph->add_node(values_node);
 
         auto dst_pos = in_edge->get_dst_input();
-        int32_t other_input = 1-dst_pos;
-        auto other_node = dst_node->get_in_edge(other_input).get_src();
-        auto input_gv=std::make_shared<GNodeVector>({row_idx_node, col_idx_node, values_node, other_input});
+        size_t other_input = 1-dst_pos;
+        auto other_node = dst_node->get_in_edge(other_input)->get_src();
+        GNodeVector input_gv({row_idx_node, col_idx_node, values_node, other_node});
         auto sparse_op = std::make_shared<op::SparseDot>(dense_op, dst_pos);
 
         auto sparse_node = std::make_shared<GNode>(
             sparse_op, input_gv);
-        for(int i=0;i<input_gv->size();i++){
-            pgraph->add_edge(input_gv->at(i), 0, sparse_node, i);
+        for(int i=0;i<input_gv.size();i++){
+            pgraph->add_edge(input_gv.at(i), 0, sparse_node, i);
         }
         // pgraph->add_edge(row_idx_node, 0, sparse_node, 0);
         // pgraph->add_edge(col_idx_node, 0, sparse_node, 1);
