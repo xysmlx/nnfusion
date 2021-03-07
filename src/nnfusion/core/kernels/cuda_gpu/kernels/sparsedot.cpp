@@ -9,13 +9,15 @@ using namespace nnfusion::kernels;
 cuda::SparseDot::SparseDot(shared_ptr<KernelContext> ctx)
     : CudaLibEmitter(ctx)
 {
-    auto dot_op = static_pointer_cast<nnfusion::op::SparseDot>(ctx->gnode->get_op_ptr());
-
-    // reduction_axes = dot_op->get_reduction_axes_count();
-    // arg0_shape = nnfusion::Shape(ctx->inputs[0]->get_shape());
-    // arg1_shape = nnfusion::Shape(ctx->inputs[1]->get_shape());
-    // out_shape = nnfusion::Shape(ctx->outputs[0]->get_shape());
-    // dtype = nnfusion::element::Type(ctx->outputs[0]->get_element_type());
+    auto sparsenode = ctx->gnode;
+    auto sparsedot = static_pointer_cast<nnfusion::op::SparseDot>(sparsenode->get_op_ptr());
+    reduction_axes = sparsedot->get_reduction_axes_count();
+    auto sparse_idx = sparsedot->get_sparse_index();
+    auto dense_idx = 1-sparse_idx;
+    auto dense_shape = sparsenode->get_input_tensor_ptr(dense_idx)->get_shape();
+    sparse_nnz = sparsedot->get_sparse_nnz();
+    out_shape = nnfusion::Shape(ctx->outputs[0]->get_shape());
+    dtype = nnfusion::element::Type(ctx->outputs[0]->get_element_type());
 
     std::stringstream tag;
     tag << "SparseDot initilization";
@@ -25,19 +27,30 @@ cuda::SparseDot::SparseDot(shared_ptr<KernelContext> ctx)
 LanguageUnit_p cuda::SparseDot::emit_function_body()
 {
     auto& ctx = m_context;
-    auto gemm =  static_pointer_cast<nnfusion::op::SparseDot>(ctx->gnode->get_op_ptr());
-    auto trans_A = gemm->get_transpose_A();
-    auto trans_B = gemm->get_transpose_B();
-    auto sparse_idx = gemm->get_sparse_index();
-
+    auto sparsenode = ctx->gnode;
+    auto sparsedot = static_pointer_cast<nnfusion::op::SparseDot>(sparsenode->get_op_ptr());
+    auto trans_A = sparsedot->get_transpose_A();
+    auto trans_B = sparsedot->get_transpose_B();
+    auto sparse_idx = sparsedot->get_sparse_index();
     LanguageUnit_p _lu(new LanguageUnit(get_function_name()));
     auto& lu = *_lu;
+    if(dtype == element::f32){
+        lu<< "// Create the dense matrix description\n";
+        lu<< "cusparseDnMatDescr_t* dnMatDescr;\n";
+        lu<< "CUSPARSE_SAFE_CALL(cusparseCreateDnMat(dnMatDescr \\ \n";
+        
+        lu<< "  ,"<< dense_shape[0]<<"\\ \n";
+        lu<< "  ,"<< dense_shape[1]<<"\\ \n";
+        lu<< "  ,ld// to be done\n";
+        lu<< "  ,(void*) input4\\ \n";
+        lu<< "  ,   CUDA_R_32F, CUSPARSE_ORDER_ROW)";
 
-    // function signature:
-    // void kernel(m_context->dtypes[0]* input0, m_context->dtypes[0]* input1, m_context->dtypes[2]* output0)
+        lu<< "//Create the sparse matrix description\n";
+        lu<< "CUSPARSE_SAFE_CALL()";
+        //lu.block_begin();
+        lu<<"SparseDot function body here";
 
-    //lu.block_begin();
-    lu<<"SparseDot function body here";
+    }
     //lu.block_end();
     return _lu;
 }

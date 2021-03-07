@@ -21,9 +21,11 @@ namespace nnfusion
             private:
                 shared_ptr<KernelContext> kernel_ctx;
                 size_t reduction_axes;
-                nnfusion::Shape arg0_shape, arg1_shape;
+                size_t sparse_nnz;
+                nnfusion::Shape dense_shape, sparse_shape;
                 nnfusion::Shape out_shape;
                 nnfusion::element::Type dtype;
+                
             };
         } // namespace cuda
     }     // namespace kernels

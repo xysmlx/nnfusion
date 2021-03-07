@@ -15,9 +15,10 @@ namespace nnfusion{
             bool has_reduction_axes_count = true,
             bool trans_a = false,
             bool trans_b = false,
-            size_t sparse_index=0);
+            size_t sparse_index=0,
+            size_t sparse_nnz=0);
             SparseDot();
-            SparseDot(std::shared_ptr<Dot> ori_dot, size_t sparse_index);
+            SparseDot(std::shared_ptr<Dot> ori_dot, size_t sparse_index, size_t sparse_nnz);
     
             void validate_and_infer_types(std::shared_ptr<graph::GNode>) override;
             size_t get_reduction_axes_count() const { return m_reduction_axes_count; }
@@ -29,7 +30,8 @@ namespace nnfusion{
 
             bool& get_transpose_A() { return m_transpose_A; }
             bool& get_transpose_B() { return m_transpose_B; }
-            size_t& get_sparse_index() {return m_sparse_index; }
+            size_t& get_sparse_index() { return m_sparse_index; }
+            size_t& get_sparse_nnz() { return m_sparse_nnz;}
         protected:
             size_t m_reduction_axes_count;
             bool m_has_reduction_axes_count;
@@ -37,6 +39,7 @@ namespace nnfusion{
             bool m_transpose_B = false;
             // indicate the index of the sparse matrix 0
             size_t m_sparse_index;
+            size_t m_sparse_nnz;
         };
     }
 }
