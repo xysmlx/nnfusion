@@ -14,7 +14,8 @@ cuda::SparseDot::SparseDot(shared_ptr<KernelContext> ctx)
     reduction_axes = sparsedot->get_reduction_axes_count();
     auto sparse_idx = sparsedot->get_sparse_index();
     auto dense_idx = 1-sparse_idx;
-    auto dense_shape = sparsenode->get_input_tensor_ptr(dense_idx)->get_shape();
+    // row_idx, col_idx, values, other input
+    dense_shape = sparsenode->get_input_tensor_ptr(3)->get_shape();
     sparse_nnz = sparsedot->get_sparse_nnz();
     sparse_shape = sparsedot->get_sparse_shape();
     out_shape = nnfusion::Shape(ctx->outputs[0]->get_shape());
