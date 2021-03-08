@@ -16,6 +16,7 @@ cuda::SparseDot::SparseDot(shared_ptr<KernelContext> ctx)
     auto dense_idx = 1-sparse_idx;
     auto dense_shape = sparsenode->get_input_tensor_ptr(dense_idx)->get_shape();
     sparse_nnz = sparsedot->get_sparse_nnz();
+    sparse_shape = sparsedot->get_sparse_shape();
     out_shape = nnfusion::Shape(ctx->outputs[0]->get_shape());
     dtype = nnfusion::element::Type(ctx->outputs[0]->get_element_type());
 
@@ -43,10 +44,27 @@ LanguageUnit_p cuda::SparseDot::emit_function_body()
         lu<< "  ,"<< dense_shape[1]<<"\\ \n";
         lu<< "  ,ld// to be done\n";
         lu<< "  ,(void*) input4\\ \n";
-        lu<< "  ,   CUDA_R_32F, CUSPARSE_ORDER_ROW)";
+        lu<< "  ,   CUDA_R_32F, CUSPARSE_ORDER_ROW))";
 
         lu<< "//Create the sparse matrix description\n";
-        lu<< "CUSPARSE_SAFE_CALL()";
+        lu<< "CUSPARSE_SAFE_CALL(cusparseCreateCsr("<<\
+            sparse_shape[0]<<"))";
+
+/*
+cusparseStatus_t
+cusparseCreateCsr(cusparseSpMatDescr_t* spMatDescr,
+                  int64_t               rows,
+                  int64_t               cols,
+                  int64_t               nnz,
+                  void*                 csrRowOffsets,
+                  void*                 csrColInd,
+                  void*                 csrValues,
+                  cusparseIndexType_t   csrRowOffsetsType,
+                  cusparseIndexType_t   csrColIndType,
+                  cusparseIndexBase_t   idxBase,
+                  cudaDataType          valueType)
+*/
+
         //lu.block_begin();
         lu<<"SparseDot function body here";
 
