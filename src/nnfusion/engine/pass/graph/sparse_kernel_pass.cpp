@@ -168,7 +168,7 @@ private:
         auto other_node = dst_node->get_in_edge(other_input)->get_src();
         GNodeVector input_gv({row_idx_node, col_idx_node, values_node, other_node});
         auto sparse_op = std::make_shared<op::SparseDot>(
-            dense_op, dst_pos, values.size(), dst_node->get_output_shape());
+            dense_op, dst_pos, values->size(), dst_node->get_output_shape(0));
 
         auto sparse_node = std::make_shared<GNode>(sparse_op, input_gv);
         for (int i = 0; i < input_gv.size(); i++)
