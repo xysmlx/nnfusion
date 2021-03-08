@@ -142,12 +142,7 @@ private:
             from<int32_t>(), nnfusion::Shape({row_idx->size()}), (void*)row_idx->data());
         auto row_idx_node = std::make_shared<GNode>(row_idx_cons, GNodeVector({}));
         row_idx_node->get_op_ptr()->revalidate_and_infer_types(row_idx_node->shared_from_this());
-        // auto row_shape = row_idx_cons->get_shape();
-        // auto row_type = row_idx_cons->get_type();
-        // auto row_out = row_idx_node->get_output_tensor_ptr(0);
-        // std::cout<<"row_out "<< row_out->get_name()<<std::endl;
-        // std::cout<<"row_out"<<row_out->get_shape()<<std::endl;
-        // std::cout<<row_shape<<"  "<<row_type<<"%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%"<<endl;
+
         auto col_idx_cons = std::make_shared<op::Constant>(
             from<int32_t>(), nnfusion::Shape({col_idx->size()}), (void*)col_idx->data());
         auto col_idx_node = std::make_shared<GNode>(col_idx_cons, GNodeVector({}));
@@ -175,24 +170,6 @@ private:
         {
             pgraph->add_edge(input_gv.at(i), 0, sparse_node, i);
         }
-        // pgraph->add_edge(row_idx_node, 0, sparse_node, 0);
-        // pgraph->add_edge(col_idx_node, 0, sparse_node, 1);
-        // pgraph->add_edge(values_node, 0, sparse_node, 2);
-        // pgraph->add_edge(values_node, 0, sparse_node, 2);
-        // auto _inputs = sparse_node->get_inputs();
-        // std::cout << "Sparse Node input size " << sparse_node->get_input_size() << std::endl;
-        // for (size_t i = 0; i < sparse_node->get_input_size(); i++)
-        // {
-        //     auto ptr = sparse_node->get_input_tensor_ptr(i);
-        //     std::cout << "Input " << i << std::endl;
-        //     std::cout << ptr->get_name() << std::endl;
-        //     std::cout << ptr->get_shape() << std::endl;
-        // }
-        // for (auto _i : _inputs)
-        // {
-        //     std::cout << " ###########" << std::endl;
-        //     std::cout << _i->get_shape() << "   " << _i->get_element_type() << std::endl;
-        // }
 
         // pgraph->add_node_and_edge(sparse_node, GNodeVector({row_idx_node, col_idx_node, values_node}));
         auto ori_output = dst_node->get_outputs();

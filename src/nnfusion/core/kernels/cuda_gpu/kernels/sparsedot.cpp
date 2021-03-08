@@ -36,41 +36,84 @@ LanguageUnit_p cuda::SparseDot::emit_function_body()
     auto sparse_idx = sparsedot->get_sparse_index();
     LanguageUnit_p _lu(new LanguageUnit(get_function_name()));
     auto& lu = *_lu;
+    std::map<bool, string> trans_string = {{true, "CUSPARSE_OPERATION_TRANSPOSE"}, {false, "CUSPARSE_OPERATION_NON_TRANSPOSE"}};
     if(dtype == element::f32){
-        lu<< "// Create the dense matrix description\n";
-        lu<< "cusparseDnMatDescr_t* dnMatDescr;\n";
-        lu<< "CUSPARSE_SAFE_CALL(cusparseCreateDnMat(dnMatDescr \\ \n";
-        
-        lu<< "  ,"<< dense_shape[0]<<"\\ \n";
-        lu<< "  ,"<< dense_shape[1]<<"\\ \n";
-        lu<< "  ,ld// to be done\n";
-        lu<< "  ,(void*) input4\\ \n";
-        lu<< "  ,   CUDA_R_32F, CUSPARSE_ORDER_ROW))";
+        lu << "const float alpha = 1.0;\n const float beta = 0;\n";
 
         lu<< "//Create the sparse matrix description\n";
-        lu<< "CUSPARSE_SAFE_CALL(cusparseCreateCsr("<<\
-            sparse_shape[0]<<"))";
-
-/*
-cusparseStatus_t
-cusparseCreateCsr(cusparseSpMatDescr_t* spMatDescr,
-                  int64_t               rows,
-                  int64_t               cols,
-                  int64_t               nnz,
-                  void*                 csrRowOffsets,
-                  void*                 csrColInd,
-                  void*                 csrValues,
-                  cusparseIndexType_t   csrRowOffsetsType,
-                  cusparseIndexType_t   csrColIndType,
-                  cusparseIndexBase_t   idxBase,
-                  cudaDataType          valueType)
-*/
-
-        //lu.block_begin();
-        lu<<"SparseDot function body here";
-
+        lu<< "cusparseMatDescr_t descrA = NULL;\n";
+        lu<< "CUSPARSE_SAFE_CALL(cusparseCreateMatDescr(&descrA));\n";
+        lu<< "cusparseSetMatIndexBase(descrA,CUSPARSE_INDEX_BASE_ZERO);\n";
+        lu<< "cusparseSetMatType(descrA, CUSPARSE_MATRIX_TYPE_GENERAL );\n";
+        if(sparse_idx == 0){
+            lu<< "CUSPARSE_SAFE_CALL()";
+        }else if(sparse_idx == 1){
+            lu << "CUSPARSE_SAFE_CALL(cusparseSbsrmm("
+               << ",cusparse_handle"\
+               << ","<<trans_string[trans_A]\
+               << ",m"\
+               << ",n"\
+               << ",k"\
+               << ","<<sparse_nnz\
+               << ",&alpha"\
+               << ",input2"\
+               << ",input0"\
+               << ",input1"\
+               << ",input3"
+               << ",ldb"\
+               << ",&beta"\
+               << ",output0"\
+               << "ldc"<<"))";
+        }else{
+            throw "Invalid sparse index for the SparseDot operation!";
+        }
     }
-    //lu.block_end();
+    // cuda 11.1
+    // if(dtype == element::f32){
+    //     lu << "const float alpha = 1.0;\n const float beta = 0;\n";
+
+    //     lu<< "//Create the sparse matrix description\n";
+    //     lu<< "cusparseSpMatDescr_t* spMatDescr;\n";
+    //     lu<< "CUSPARSE_SAFE_CALL(cusparseCreateCsr(spMatDescr"<<\
+    //         sparse_shape[0]<<", "<<sparse_shape[1]<<", "<<sparse_nnz<<\ 
+    //         "static_cast<void*>(input1),"<<\
+    //         "static_cast<void*>(input2), "<<
+    //         "static_cast<void*>(input3)," <<
+    //         "CUSPARSE_INDEX_32I, CUSPARSE_INDEX_32I,"<<
+    //         "CUSPARSE_INDEX_BASE_ZERO, CUDA_R_32F)";
+        
+    //     lu<< "// Call the CuSparse SPMM here\n";
+    //     std::map<bool, string> trans_string = {{true, "CUSPARSE_OPERATION_TRANSPOSE"}, {false, "CUSPARSE_OPERATION_NON_TRANSPOSE"}};
+    //     if(sparse_idx==0){
+    //         // sparse matrix * dense matrix
+    //         // calculate in the row-major
+    //     }else{
+    //         lu<< "// Create the dense matrix description\n";
+    //         lu<< "cusparseDnMatDescr_t* dnMatDescr;\n";
+    //         lu<< "CUSPARSE_SAFE_CALL(cusparseCreateDnMat(dnMatDescr \\ \n";
+    //         // need transpose the dense matrix due to the col_major;
+    //         lu<< ","<< dense_shape[1];
+    //         lu<< ","<< dense_shape[2];
+    //         lu<< ",ld// to be done";
+    //         lu<< ",(void*) input4";
+    //         lu<< ",   CUDA_R_32F, CUSPARSE_ORDER_COL))";
+
+    //         lu<< "// Create the dense matrix description\n";
+    //         lu<< "cusparseDnMatDescr_t* dnMatDescr;\n";
+    //         lu<< "CUSPARSE_SAFE_CALL(cusparseCreateDnMat(dnMatDescr \\ \n";
+    //         // need transpose the dense matrix due to the col_major;
+    //         lu<< ","<< dense_shape[1];
+    //         lu<< ","<< dense_shape[2];
+    //         lu<< ",ld// to be done";
+    //         lu<< ",(void*) input4";
+    //         lu<< ",   CUDA_R_32F, CUSPARSE_ORDER_COL))";
+    //         // dense matrix * sparse matrix
+    //         //calculate in the column major
+    //         lu<<"cusparseSpMM(cusparse_handle, "<<trans_string[!trans_A]<<", "<< \
+    //         trans_string[trans_B]<< ",&alpha"<<",*spMatDescr"<<",*dnMatDescr"<< \
+    //         ",&beta"<<",*dnMatDescr_out"<<",CUDA_R_32F, CUSPARSE_SPMM_CSR_ALG1, externalBuffer);";
+    //     }
+    // }
     return _lu;
 }
 
