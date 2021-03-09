@@ -81,6 +81,7 @@ target_link_libraries(${TARGET_NAME}
     ${CUDA_cudart_LIBRARY}
     ${CUDA_LIBRARIES}
     ${CUDA_CUBLAS_LIBRARIES}
+    ${CUDA_cusparse_LIBRARY}
     ${CUDNN_LIBRARY})
 )");
 
