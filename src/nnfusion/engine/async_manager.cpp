@@ -284,7 +284,7 @@ LanguageUnit_p DeviceStreamAsyncManager::emit_stream_destroy()
                 else if (binding_symbol_pair.first == "cusparse_handle")
                 {
                     lu << "CUSPARSE_SAFE_CALL(cusparseDestroy(" << binding_symbol_pair.second
-                       << "))\n";
+                       << "));\n";
                 }
                 else
                     nnfusion::errors::RuntimeError("Unknown stream binding info.");

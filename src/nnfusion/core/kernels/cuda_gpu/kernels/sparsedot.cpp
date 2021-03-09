@@ -61,16 +61,17 @@ LanguageUnit_p cuda::SparseDot::emit_function_body()
             }
             lu << "CUSPARSE_SAFE_CALL(cusparseSbsrmm("
                << "cusparse_handle"\
-               << ","<<trans_string[!trans_B]\
-               << ","<<k //M
-               << ","<<m //N
-               << ","<<n //K
-               << ","<<sparse_nnz\
-               << ",&alpha"
-               << ",input2"
-               << ",input0"
-               << ",input1"
-               << ",input3"
+               << ", "<<trans_string[!trans_B]\
+               << ", "<<k //M
+               << ", "<<m //N
+               << ", "<<n //K
+               << ", "<<sparse_nnz
+               << ", &alpha"
+               << ", descrA"
+               << ", input2"
+               << ", input0"
+               << ", input1"
+               << ", input3"
                << ","<<k  //LDB
                << ",&beta"
                << ",output0"
