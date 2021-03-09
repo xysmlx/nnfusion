@@ -74,7 +74,7 @@ LanguageUnit_p cuda::SparseDot::emit_function_body()
                << ","<<k  //LDB
                << ",&beta"
                << ",output0"
-               << ","<<k<<"))"; //LDC
+               << ","<<k<<"));"; //LDC
         }else{
             throw "Invalid sparse index for the SparseDot operation!";
         }
