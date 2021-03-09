@@ -176,6 +176,11 @@ LanguageUnit_p KernelEmitter::emit_function_call()
                     NNFUSION_CHECK(binding_symbol.find("cublas_handle") != binding_symbol.end());
                     lu << binding_symbol["cublas_handle"] << ", ";
                 }
+                if (sig_unit->get_code().find("cusparseHandle_t") != string::npos)
+                {
+                    NNFUSION_CHECK(binding_symbol.find("cusparse_handle") != binding_symbol.end());
+                    lu << binding_symbol["cusparse_handle"] << ",";
+                }
             }
         }
     }
