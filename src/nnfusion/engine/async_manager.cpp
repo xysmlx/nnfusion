@@ -132,6 +132,8 @@ LanguageUnit_p DeviceStreamAsyncManager::emit_stream_decl()
                 lu << "cudnnHandle_t " << binding_symbol_pair.second << ";\n";
             else if (binding_symbol_pair.first == "cublas_handle")
                 lu << "cublasHandle_t " << binding_symbol_pair.second << ";\n";
+            else if (binding_symbol_pair.first == "cusparse_handle")
+                lu << "cusparseHandle_t " << binding_symbol_pair.second << ";\n";
             else
                 nnfusion::errors::RuntimeError("Unknown stream binding info.");
         }
@@ -185,6 +187,14 @@ LanguageUnit_p DeviceStreamAsyncManager::emit_stream_init()
                        << "));\n";
                     if (!stream->is_default_stream())
                         lu << "CUBLAS_SAFE_CALL(cublasSetStream(" << binding_symbol_pair.second
+                           << ", " << stream->get_name() << "));\n";
+                }
+                else if (binding_symbol_pair.first == "cusparse_handle")
+                {
+                    lu << "CUSPARSE_SAFE_CALL(cusparseCreate(&" << binding_symbol_pair.second
+                       << "));\n";
+                    if (!stream->is_default_stream())
+                        lu << "CUSPARSE_SAFE_CALL(cusparseSetStream(" << binding_symbol_pair.second
                            << ", " << stream->get_name() << "));\n";
                 }
                 else
@@ -270,6 +280,11 @@ LanguageUnit_p DeviceStreamAsyncManager::emit_stream_destroy()
                 {
                     lu << "CUBLAS_SAFE_CALL(cublasDestroy(" << binding_symbol_pair.second
                        << "));\n";
+                }
+                else if (binding_symbol_pair.first == "cusparse_handle")
+                {
+                    lu << "CUSPARSE_SAFE_CALL(cusparseDestroy(" << binding_symbol_pair.second
+                       << "))\n";
                 }
                 else
                     nnfusion::errors::RuntimeError("Unknown stream binding info.");

@@ -399,6 +399,8 @@ void AssignAsyncInfoPass::naive_assign_stream_info(shared_ptr<Graph>& graph)
                 stream->add_binding_symbol("cudnn_handle");
             if (kernel->require_cublas_handle())
                 stream->add_binding_symbol("cublas_handle");
+            if (kernel->require_cusparse_handle())
+                stream->add_binding_symbol("cusparse_handle");
         }
     }
     NNFUSION_LOG(INFO) << "assign stream info-------------------------------";
@@ -728,6 +730,8 @@ void AssignAsyncInfoPass::kernel_prof_based_assign_stream_info(std::shared_ptr<G
                 stream->add_binding_symbol("cudnn_handle");
             if (kernel->require_cublas_handle())
                 stream->add_binding_symbol("cublas_handle");
+            if (kernel->require_cusparse_handle())
+                stream->add_binding_symbol("cusparse_handle");
         }
     }
     NNFUSION_LOG(INFO) << "assign stream info-------------------------------";
