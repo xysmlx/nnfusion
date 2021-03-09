@@ -46,24 +46,35 @@ LanguageUnit_p cuda::SparseDot::emit_function_body()
         lu<< "cusparseSetMatIndexBase(descrA,CUSPARSE_INDEX_BASE_ZERO);\n";
         lu<< "cusparseSetMatType(descrA, CUSPARSE_MATRIX_TYPE_GENERAL );\n";
         if(sparse_idx == 0){
+            // calculate in row-major
             lu<< "CUSPARSE_SAFE_CALL()";
         }else if(sparse_idx == 1){
+            // calculate in col-major
+            int m, k, n;
+            m = dense_shape[0];
+            k = dense_shape[1];
+            n = trans_B? sparse_shape[0]: sparse_shape[1];
+            if(trans_B){
+                assert(k == sparse_shape[0]);
+            }else{
+                assert(k == sparse_shape[1]);
+            }
             lu << "CUSPARSE_SAFE_CALL(cusparseSbsrmm("
                << ",cusparse_handle"\
-               << ","<<trans_string[trans_A]\
-               << ",m"\
-               << ",n"\
-               << ",k"\
+               << ","<<trans_string[!trans_B]\
+               << ","<<k //M
+               << ","<<m //N
+               << ","<<n //K
                << ","<<sparse_nnz\
-               << ",&alpha"\
-               << ",input2"\
-               << ",input0"\
-               << ",input1"\
+               << ",&alpha"
+               << ",input2"
+               << ",input0"
+               << ",input1"
                << ",input3"
-               << ",ldb"\
-               << ",&beta"\
-               << ",output0"\
-               << "ldc"<<"))";
+               << ","<<k  //LDB
+               << ",&beta"
+               << ",output0"
+               << ","<<k<<"))"; //LDC
         }else{
             throw "Invalid sparse index for the SparseDot operation!";
         }
