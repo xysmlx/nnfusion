@@ -29,6 +29,7 @@ bool CudaDefaultRuntime::codegen(const ProfilingContext::Pointer& ke)
     async_info.execution_stream = async_manager->set_stream();
     bool require_cudnn_handle = false;
     bool require_cublas_handle = false;
+    bool require_cusparse_handle = false;
     if (auto kernel = std::dynamic_pointer_cast<CudaLibEmitter>(ke->kernel))
     {
         if (kernel->require_cudnn_handle())
@@ -40,6 +41,11 @@ bool CudaDefaultRuntime::codegen(const ProfilingContext::Pointer& ke)
         {
             async_info.execution_stream->add_binding_symbol("cublas_handle");
             require_cublas_handle = true;
+        }
+        if (kernel->require_cusparse_handle())
+        {   
+            async_info.execution_stream->add_binding_symbol("cuspare_handle");
+            require_cusparse_handle = true;
         }
     }
 
@@ -79,6 +85,10 @@ bool CudaDefaultRuntime::codegen(const ProfilingContext::Pointer& ke)
         if (kernel->require_cublas_handle())
         {
             writer << "cublasHandle_t cublas_handle_0;\n";
+        }
+        if (kernel->require_cusparse_handle())
+        {
+            writer << "cusparseHandle_t cusparse_handle_0&&&&&;\n";
         }
     }
     // special for dropout
@@ -213,6 +223,10 @@ bool CudaDefaultRuntime::codegen(const ProfilingContext::Pointer& ke)
         if (require_cublas_handle)
         {
             writer << "CUBLAS_SAFE_CALL(cublasCreate(&cublas_handle_0));\n";
+        }
+        if (require_cusparse_handle)
+        {
+            writer << "CUSPARSE_SAFE_CALL(cusparseCreate(&cusparse_handle_0));\n";
         }
         for (auto prefix : dropout_prefix)
         {
@@ -416,7 +430,10 @@ bool CudaDefaultRuntime::codegen(const ProfilingContext::Pointer& ke)
         {
             writer << "CUBLAS_SAFE_CALL(cublasDestroy(cublas_handle_0));\n";
         }
-
+        if (require_cusparse_handle)
+        {
+            writer << "CUSPARSE_SAFE_CALL(cusparseDestroy(cusparse_handle_0));\n";
+        }
         writer << "return milliseconds/" << ke->runtime_times << ";\n";
     }
     writer.block_end();
