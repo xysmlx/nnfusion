@@ -59,7 +59,7 @@ LanguageUnit_p cuda::SparseDot::emit_function_body()
             }else{
                 assert(k == sparse_shape[1]);
             }
-            lu << "CUSPARSE_SAFE_CALL(cusparseSbsrmm("
+            lu << "CUSPARSE_SAFE_CALL(cusparseScsrmm("
                << "cusparse_handle"\
                << ", "<<trans_string[!trans_B]\
                << ", "<<k //M
