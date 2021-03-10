@@ -35,6 +35,7 @@
 #include "op/const_of_shape.hpp"
 #include "op/constant.hpp"
 #include "op/conv.hpp"
+#include "op/conv_trans.hpp"
 #include "op/div_grad.hpp"
 #include "op/dropout.hpp"
 #include "op/embed_layer_norm.hpp"
@@ -57,6 +58,7 @@
 #include "op/range.hpp"
 #include "op/reduce.hpp"
 #include "op/reshape.hpp"
+#include "op/resize.hpp"
 #include "op/shape.hpp"
 #include "op/skip_layer_norm.hpp"
 #include "op/slice.hpp"
@@ -69,6 +71,7 @@
 #include "op/transpose.hpp"
 #include "op/unaryop.hpp"
 #include "op/unsqueeze.hpp"
+#include "op/where.hpp"
 
 #include "ops_bridge.hpp"
 
@@ -85,6 +88,7 @@ namespace nnfusion
                                         const std::string& domain,
                                         const std::map<std::int64_t, ConvertFunc>& map)
                 {
+                    const static ConvertFunc EMPTY_FUNC = nullptr;
                     int64_t avail_version = version;
                     while (avail_version > 0)
                     {
@@ -94,9 +98,7 @@ namespace nnfusion
                             return it->second;
                         }
                     }
-                    NNFUSION_CHECK_FAIL()
-                        << "Unsupported version: " << (domain.empty() ? "" : domain + ".") << name
-                        << ":" << std::to_string(version);
+                    return EMPTY_FUNC;
                 }
             } // namespace detail
 
@@ -113,11 +115,17 @@ namespace nnfusion
             {
                 ConvertFuncMap result;
                 auto dm = m_map.find(domain);
-                NNFUSION_CHECK(dm != std::end(m_map)) << "Unknown Domain: " << domain;
-
-                for (const auto& op : dm->second)
+                if (dm != std::end(m_map))
                 {
-                    result.emplace(op.first, detail::find(op.first, version, domain, op.second));
+                    for (const auto& op : dm->second)
+                    {
+                        const auto& convert_func =
+                            detail::find(op.first, version, domain, op.second);
+                        if (convert_func)
+                        {
+                            result.emplace(op.first, convert_func);
+                        }
+                    }
                 }
                 return result;
             }
@@ -134,12 +142,6 @@ namespace nnfusion
 
             OperatorsBridge::OperatorsBridge()
             {
-                REGISTER_EMPTY_DOMAIN("com.microsoft.nchwc");
-                REGISTER_EMPTY_DOMAIN("ai.onnx.training");
-                REGISTER_EMPTY_DOMAIN("ai.onnx.ml");
-                REGISTER_EMPTY_DOMAIN("ai.onnx.preview.training");
-                REGISTER_EMPTY_DOMAIN("com.microsoft");
-                REGISTER_EMPTY_DOMAIN("com.microsoft.mlfeaturizers");
                 REGISTER_OPERATOR("Abs", 1, TranslateUnaryOp<op::Abs>);
                 REGISTER_OPERATOR("Acos", 1, TranslateUnaryOp<op::Acos>);
                 REGISTER_OPERATOR("AdamOptimizer", 1, TranslateAdamOptimizerOp);
@@ -211,7 +213,7 @@ namespace nnfusion
                 REGISTER_OPERATOR("Or", 1, TranslateBinaryOp<op::Or>);
                 REGISTER_OPERATOR("Pow", 1, TranslateBinaryOp<op::Power>);
                 //REGISTER_OPERATOR("PRelu", 1, prelu);
-                // REGISTER_OPERATOR("Range", 11, TranslateRangeOp);
+                REGISTER_OPERATOR("Range", 11, TranslateRangeOp);
                 //REGISTER_OPERATOR("Reciprocal", 1, reciprocal);
                 //REGISTER_OPERATOR("ReduceLogSum", 1, reduce_log_sum);
                 //REGISTER_OPERATOR("ReduceLogSumExp", 1, reduce_log_sum_exp);
@@ -262,6 +264,10 @@ namespace nnfusion
                 REGISTER_OPERATOR("Transpose", 1, TranslateTransposeOp);
                 REGISTER_DOMAIN_OPERATOR("com.microsoft", "TransposeMatMul", 1, TranslateMatmulOp);
                 REGISTER_OPERATOR("Unsqueeze", 1, TranslateUnsqueezeOp);
+                REGISTER_OPERATOR("ConvTranspose", 1, TranslateConvTransposeOp);
+                REGISTER_OPERATOR("Resize", 1, TranslateResizeOp);
+                REGISTER_OPERATOR("Upsample", 1, TranslateResizeOp);
+                REGISTER_OPERATOR("Where", 1, TranslateWhereOp);
                 // REGISTER_OPERATOR("Xor", 1, logical_xor);
             }
 

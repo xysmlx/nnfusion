@@ -5,7 +5,7 @@
 #include "../cuda_common_ops.hpp"
 #include "../cuda_emitter.hpp"
 #include "../cuda_langunit.hpp"
-
+#include "matmuladd.hpp"
 namespace nnfusion
 {
     namespace kernels
@@ -16,6 +16,7 @@ namespace nnfusion
             class ElementWise : public CudaElementwiseEmitter
             {
             public:
+                friend class nnfusion::kernels::cuda::MatMulAdd;
                 ElementWise(shared_ptr<KernelContext> ctx)
                     : CudaElementwiseEmitter(ctx)
                 {
@@ -45,17 +46,17 @@ namespace nnfusion
                         lu.require(declaration::cuda_convert_template);
                         lu.require(header::cublas);
                     }
-                    else if (m_context->gnode->get_op_type() == "Gelu")
-                    {
-                        lu.require(declaration::math_Gelu);
-                        lu.require(header::cublas);
-                    }
                     else if (iter->second.math_kernel != "")
                     {
                         auto math_kernel =
                             get_math_kernel(op, iter->second.math_kernel, data_types);
                         NNFUSION_CHECK_NOT_NULLPTR(math_kernel);
                         lu.require(math_kernel);
+                        if (m_context->gnode->get_op_type() == "Gelu")
+                        {
+                            math_kernel->require(declaration::math_Gelu);
+                            math_kernel->require(header::cublas);
+                        }
                     }
 
                     auto num_inputs = data_types.size() - 1;

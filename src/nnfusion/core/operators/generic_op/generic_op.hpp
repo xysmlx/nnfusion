@@ -8,6 +8,7 @@
 
 #include "nnfusion/common/common.hpp"
 #include "nnfusion/core/kernels/antares_ke_imp.hpp"
+#include "nnfusion/core/operators/util/annotations.hpp"
 
 #define REGISTER_OP(op_x)                                                                          \
     static nnfusion::op::OpConfig __register_op_##op_x = nnfusion::op::build_op_config(#op_x)
@@ -30,6 +31,7 @@ namespace nnfusion
             using infersharedmemory_func_t = void (*)(std::shared_ptr<graph::GNode> gnode);
             using translate_func_t = std::string (*)(std::shared_ptr<graph::GNode> gnode);
             using translate_func_t_v2 = std::string (*)(std::shared_ptr<graph::GNode> gnode);
+            using kernel_func_t = std::string (*)(std::shared_ptr<graph::GNode> gnode);
             std::string get_annotation(std::string translation);
 
             // OpConfig(): f_infershape(infershape::copy_shape_from_inputs) { }
@@ -77,6 +79,39 @@ namespace nnfusion
                 return *this;
             }
 
+            OpConfig& antares_ir(const translate_func_t_v2& func)
+            {
+                f_translate_v2 = func;
+                return *this;
+            }
+
+            OpConfig& cuda_kernel(const kernel_func_t& func,
+                                  std::vector<uint32_t> config,
+                                  bool is_memcpy = false)
+            {
+                f_kernel_funcs["CUDA_GPU"] = func;
+                getRoot()["launch_config"] = config;
+                getRoot()["is_memcpy"] = is_memcpy;
+                return *this;
+            }
+
+            OpConfig& cpu_kernel(const kernel_func_t& func, bool is_memcpy = false)
+            {
+                f_kernel_funcs["GENERIC_CPU"] = func;
+                getRoot()["is_memcpy"] = is_memcpy;
+                return *this;
+            }
+
+            OpConfig& hlsl_kernel(const kernel_func_t& func,
+                                  std::vector<uint32_t> config,
+                                  bool is_memcpy = false)
+            {
+                f_kernel_funcs["HLSL"] = func;
+                getRoot()["launch_config"] = config;
+                getRoot()["is_memcpy"] = is_memcpy;
+                return *this;
+            }
+
             OpConfig& show()
             {
                 NNFUSION_LOG(INFO) << getRoot();
@@ -103,6 +138,7 @@ namespace nnfusion
             infersharedmemory_func_t f_infersharedmemory;
             translate_func_t f_translate;
             translate_func_t_v2 f_translate_v2;
+            std::map<std::string, kernel_func_t> f_kernel_funcs;
             OpConfig::any j_attrs;
         };
 
@@ -123,7 +159,7 @@ namespace nnfusion
         {
             NNFUSION_CHECK(get_op_configs().find(opname) == get_op_configs().end())
                 << "OpConfig for opname `" + opname + "` is registered more than once.";
-            //NNFUSION_LOG(INFO) << "Registering opname `" << opname << "`";
+            get_op_configs()[opname].attr("op", opname);
             return get_op_configs()[opname];
         }
 
@@ -222,6 +258,10 @@ namespace nnfusion
             else if (d_type == element::f16)
             {
                 config[alias_name + "_dtype"] = "float16";
+            }
+            else if (d_type == element::boolean)
+            {
+                config[alias_name + "_dtype"] = "int8";
             }
             else
             {
