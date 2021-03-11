@@ -162,9 +162,12 @@ private:
         size_t other_input = 1 - dst_pos;
         auto other_node = dst_node->get_in_edge(other_input)->get_src();
         GNodeVector input_gv({row_idx_node, col_idx_node, values_node, other_node});
-        auto sparse_op = std::make_shared<op::SparseDot>(
-            dense_op, dst_pos, values->size(), src_node->get_output_shape(0));
-
+        auto ori_sparse_shape = src_node->get_output_shape(0);
+        auto sparse_op =
+            std::make_shared<op::SparseDot>(dense_op, dst_pos, values->size(), ori_sparse_shape);
+        NNFUSION_LOG(INFO) << "Replace a Dot op with sparsity ratio:"
+                           << 1.0 * values->size() / ori_sparse_shape[0] / ori_sparse_shape[1]
+                           << "\n";
         auto sparse_node = std::make_shared<GNode>(sparse_op, input_gv);
         for (int i = 0; i < input_gv.size(); i++)
         {
