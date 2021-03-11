@@ -14,7 +14,7 @@
 
 #include "gflags/gflags.h"
 
-DEFINE_bool(sparse_kernel, false, "Sparse Kernel.");
+DEFINE_bool(fsparse_kernel, false, "Sparse Kernel.");
 
 using namespace nnfusion::graph;
 using namespace nnfusion::pass::graph;
@@ -187,7 +187,7 @@ private:
 
 bool SparseKernelPass::run_on_graph(std::shared_ptr<Graph>& graph)
 {
-    bool enable_sparse_kernel = FLAGS_sparse_kernel;
+    bool enable_sparse_kernel = FLAGS_fsparse_kernel;
     if (!enable_sparse_kernel)
         return true;
     NNFUSION_LOG(INFO) << "Enable the Sparse kernels";
