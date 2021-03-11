@@ -72,7 +72,7 @@ LanguageUnit_p cuda::SparseDot::emit_function_body()
                << ", input0"
                << ", input1"
                << ", input3"
-               << ","<<k  //LDB
+               << ", "<<k  //LDB
                << ",&beta"
                << ",output0"
                << ","<<k<<"));"; //LDC
