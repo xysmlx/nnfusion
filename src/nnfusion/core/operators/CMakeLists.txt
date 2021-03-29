@@ -88,6 +88,7 @@ set(SRC
     op_define/variable.cpp
     op_define/fused.cpp
     op_define/sparsedot.cpp
+    op_define/quantizedot.cpp
     ${generic_op_define}
 )
 
