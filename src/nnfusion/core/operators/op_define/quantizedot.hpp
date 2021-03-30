@@ -26,13 +26,14 @@ namespace nnfusion
 
             bool& get_transpose_A() { return m_transpose_A; }
             bool& get_transpose_B() { return m_transpose_B; }
+            size_t get_quantize_bit() {return m_quantize_bit; }
 
         protected:
             size_t m_reduction_axes_count;
             bool m_has_reduction_axes_count;
             bool m_transpose_A = false;
             bool m_transpose_B = false;
-            size_t n_quantize_bit;
+            size_t m_quantize_bit;
         };
         
     } // namespace op

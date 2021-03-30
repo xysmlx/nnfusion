@@ -12,7 +12,7 @@ using namespace nnfusion::op;
 
 
 QuantizeDot::QuantizeDot(shared_ptr<Dot> ori_dot, size_t quantize_bit)
-    : Op("QuantizeDot8bit")
+    : Op("QuantizeDot")
 // Initialize the SparseDot Op according to the original Dot Op
 {
     bool trans_A = ori_dot->get_transpose_A();
@@ -29,7 +29,7 @@ void QuantizeDot::validate_and_infer_types(std::shared_ptr<graph::GNode> gnode)
     // shape again
     auto result_shape = gnode->get_output_shape(0);
     nnfusion::element::Type result_et;
-    switch (n_quantize_bit){
+    switch (m_quantize_bit){
         case 8:
             result_et = nnfusion::element::from<int8_t>();
             break;
