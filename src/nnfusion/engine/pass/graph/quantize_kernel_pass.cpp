@@ -72,6 +72,7 @@ public:
                 float * tmp_weight = (float* )malloc(sizeof(float) * weight_count);
                 float * tmp_out = (float* )malloc(sizeof(float) * out_count);
                 float * tmp_scale = (float *) malloc(sizeof(float));
+                auto dense_op = std::dynamic_pointer_cast<op::Dot>(cur_node->get_op_ptr());
                 // quantized weight of the weight
                 // The values is not right and will be filled after nnfusion.
                 auto quan_w = std::make_shared<op::Constant>(from<int8_t>(), nnfusion::Shape(w_shape), static_cast<void*>(tmp_out));
@@ -108,8 +109,16 @@ public:
                 m_graph->add_node(scale_integer_node);
                 m_graph->add_node(scale_shift_node);
 
-                auto quan_dot = std::make_shared<op::QuantizeDot8bit>(dense_op);
+                auto quan_dot = std::make_shared<op::QuantizeDot>(dense_op, 8);
                 auto quan_dot_node = std::make_shared<GNode>(quan_dot, GNodeVector({}));
+                auto ori_outputs = cur_node->get_outputs();
+                //???
+                for (int i=0;i<ori_outputs.size();i++){
+                    quan_dot_node.set_outputs(i, ori_outputs[i]);
+                }
+                // replace node will revalidate and infer the output tensor
+                m_graph->replace_node(cur_node, quan_dot_node, false);
+                m_graph->remove_node(src_node);
 
 
                 has_constant = true;
