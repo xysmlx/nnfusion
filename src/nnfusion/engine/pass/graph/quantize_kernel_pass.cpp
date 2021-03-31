@@ -133,7 +133,7 @@ private:
     std::map<string, int> quantize_cfg;
 };
 
-bool QuantizeKernelPass::run_on_graph(std::shared_ptr<Graph> graph)
+bool QuantizeKernelPass::run_on_graph(std::shared_ptr<Graph>& graph)
 {
     bool enable_quantize_kernel = FLAGS_fquantize_cfg.size() > 0;
     if (!enable_quantize_kernel)
