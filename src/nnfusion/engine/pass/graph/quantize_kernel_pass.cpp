@@ -114,7 +114,7 @@ public:
                 auto ori_outputs = cur_node->get_outputs();
                 //???
                 for (int i=0;i<ori_outputs.size();i++){
-                    quan_dot_node.set_outputs(i, ori_outputs[i]);
+                    quan_dot_node->set_output(i, ori_outputs[i]);
                 }
                 // replace node will revalidate and infer the output tensor
                 m_graph->replace_node(cur_node, quan_dot_node, false);
