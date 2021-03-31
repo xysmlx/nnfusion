@@ -51,7 +51,7 @@ public:
         auto gnodes = m_graph->get_ordered_ops();
         for (auto node : gnodes)
         {
-            std::cout<<node->get_unique_name()<<std::endl;
+            std::cout<<node->get_unique_name()<<" "<<node->get_name()<<std::endl;
             if (node->get_op_type() == "Dot" && quantize_cfg.count(node->get_unique_name()))
             {
                 DotQuantizeOptimize8bit(node);
