@@ -81,24 +81,24 @@ public:
                 quan_w_node->get_op_ptr()->revalidate_and_infer_types(quan_w_node->shared_from_this());
                 
                 // Weight * input zero point
-                auto w_mul_zp = std::make_shared<op::Constant>(from<uint32_t>, nnfusion::Shape(out_shape), static_cast<void*>(tmp_out));
+                auto w_mul_zp = std::make_shared<op::Constant>(from<uint32_t>(), nnfusion::Shape(out_shape), static_cast<void*>(tmp_out));
                 auto w_mul_zp_node = std::make_shared<GNode>(w_mul_zp, GNodeVector({}));
                 w_mul_zp->revalidate_and_infer_types(w_mul_zp_node->shared_from_this());
 
                 // zero points of the weight tensor
-                auto w_zp = std::make_shared<op::Constant>(from<int8_t>, nnfusion::Shape(w_shape), static_cast<void*>(tmp_weight));
+                auto w_zp = std::make_shared<op::Constant>(from<int8_t>(), nnfusion::Shape(w_shape), static_cast<void*>(tmp_weight));
                 auto w_zp_node = std::make_shared<GNode>(w_zp, GNodeVector({}));
                 w_zp->revalidate_and_infer_types(w_zp_node);
 
-                auto zp_acc = std::make_shared<op::Constant>(from<uint32_t>, nnfusion::Shape(out_shape), static_cast<void*>(tmp_out));
+                auto zp_acc = std::make_shared<op::Constant>(from<uint32_t>(), nnfusion::Shape(out_shape), static_cast<void*>(tmp_out));
                 auto zp_acc_node = std::make_shared<GNode>(zp_acc, GNodeVector({}));
                 zp_acc->revalidate_and_infer_types(zp_acc_node->shared_from_this());
 
-                auto scale_integer = std::make_shared<op::Constant>(from<int32_t>, nnfusion::Shape(vector<size_t>({1})), static_cast<void*>(tmp_scale));
+                auto scale_integer = std::make_shared<op::Constant>(from<int32_t>(), nnfusion::Shape(vector<size_t>({1})), static_cast<void*>(tmp_scale));
                 auto scale_integer_node = std::make_shared<GNode>(scale_integer, GNodeVector({}));
                 scale_integer->revalidate_and_infer_types(scale_integer_node->shared_from_this());
 
-                auto scale_shift = std::make_shared<op::Constant>(from<int32_t>, nnfusion::Shape(vector<size_t>({1})), static_cast<void*>(tmp_scale));
+                auto scale_shift = std::make_shared<op::Constant>(from<int32_t>(), nnfusion::Shape(vector<size_t>({1})), static_cast<void*>(tmp_scale));
                 auto scale_shift_node = std::make_shared<GNode>(scale_shift, GNodeVector({}));
                 scale_shift->revalidate_and_infer_types(scale_shift_node->shared_from_this());
 
