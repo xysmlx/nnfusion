@@ -55,7 +55,7 @@ def unwrapper(model_onnx, index2name, config):
         idx = idx+1
     return model_onnx, onnx_config
  
-def torch_to_onnx(model, config, input_shape, model_path, input_names, output_names):
+def torch_to_onnx(model, config, input_shape, model_path):
     """
     Convert torch model to onnx model and get layer bit config of onnx model.
     """
@@ -78,7 +78,7 @@ def torch_to_onnx(model, config, input_shape, model_path, input_names, output_na
     # Convert torch model to onnx model and save it in model_path
     dummy_input = torch.randn(input_shape)
     model.to('cpu')
-    torch.onnx.export(model, dummy_input, model_path, verbose=False, input_names=input_names, output_names=output_names, export_params=True)
+    torch.onnx.export(model, dummy_input, model_path, verbose=False, export_params=True)
  
     # Load onnx model
     model_onnx = onnx.load(model_path)
@@ -94,6 +94,6 @@ cfg = {'conv1':16}
 input_names=["actual_input_1"]
 output_names=["output1"]
  
-re = torch_to_onnx(model, cfg, (1, 3, 224, 224), 'test_model.onnx', input_names, output_names)
+re = torch_to_onnx(model, cfg, (1, 3, 224, 224), 'test_model.onnx')
  
 print(re[1])
