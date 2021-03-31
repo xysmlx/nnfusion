@@ -34,12 +34,24 @@ public:
     {
         // Load the quantize config
         // pytorch name, onnx name, quantize bit
+        ifstream cfg_file(cfg_path.c_str());
+        assert(cfg_file.good());
+        string line;
+        while(std::getline(cfg_file, line)){
+            std::istringstream iss(line);
+            string name;
+            int n_bit;
+            iss >> name >> n_bit;
+            quantize_cfg[name] = n_bit;
+        }
+
     }
     bool optimize()
     {
         auto gnodes = m_graph->get_ordered_ops();
         for (auto node : gnodes)
         {
+            std::cout<<node->get_unique_name()<<std::endl;
             if (node->get_op_type() == "Dot" && quantize_cfg.count(node->get_unique_name()))
             {
                 DotQuantizeOptimize8bit(node);
