@@ -55,7 +55,7 @@ def unwrapper(model_onnx, index2name, config):
         idx = idx+1
     return model_onnx, onnx_config
  
-def torch_to_onnx(model, config, input_shape, model_path):
+def torch_to_onnx(model, config, input_shape, model_path, cfg_path):
     """
     Convert torch model to onnx model and get layer bit config of onnx model.
     """
@@ -86,14 +86,10 @@ def torch_to_onnx(model, config, input_shape, model_path):
     onnx.save(model_onnx, model_path)
  
     onnx.checker.check_model(model_onnx)
-    return model_onnx, onnx_config
+    with open(cfg_path, 'w') as cfg_f:
+        for key, value in onnx_config.items():
+            cfg_f.write('{} {}\n'.format(key, value))
+
+
+
  
-model = torchvision.models.resnet18()
- 
-cfg = {'conv1':16}
-input_names=["actual_input_1"]
-output_names=["output1"]
- 
-re = torch_to_onnx(model, cfg, (1, 3, 224, 224), 'test_model.onnx')
- 
-print(re[1])
