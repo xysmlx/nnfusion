@@ -52,11 +52,11 @@ public:
         for (auto node : gnodes)
         {
             std::cout<<node->get_unique_name()<<" "<<node->get_name()<<std::endl;
-            for(auto iter=quantize_cfg.begin(); iter!=quantize_cfg.end(); iter++){
-                std::cout<<iter->first<<" ";
-            }
+            // for(auto iter=quantize_cfg.begin(); iter!=quantize_cfg.end(); iter++){
+            //     std::cout<<iter->first<<" ";
+            // }
             std::cout<<std::endl;
-            if (node->get_op_type() == "Dot" && quantize_cfg.count(node->get_unique_name()))
+            if (node->get_op_type() == "Dot" && quantize_cfg.count(node->get_name()))
             {
                 DotQuantizeOptimize8bit(node);
             }
@@ -69,6 +69,7 @@ public:
     }
     void DotQuantizeOptimize8bit(std::shared_ptr<GNode> cur_node)
     {
+        std::cout<<"In DotQuantizeOptimize 8bit"<<std::endl;
         bool has_constant = false;
         for (auto in_edge: cur_node->get_in_edges())
         {
