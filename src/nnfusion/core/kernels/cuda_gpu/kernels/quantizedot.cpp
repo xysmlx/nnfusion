@@ -51,7 +51,7 @@ cuda::QuantizeDot8bit::QuantizeDot8bit(shared_ptr<KernelContext> ctx)
 {
     auto quan_node = ctx->gnode;
     auto quan_dot = static_pointer_cast<nnfusion::op::QuantizeDot>(quan_node->get_op_ptr());
-
+    
     std::stringstream tag;
     tag << "QuantizeDot8bit initilization";
     custom_tag = tag.str();
