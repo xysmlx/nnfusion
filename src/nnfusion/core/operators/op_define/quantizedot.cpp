@@ -19,7 +19,7 @@ QuantizeDot::QuantizeDot(shared_ptr<Dot> ori_dot, size_t quantize_bit)
     bool trans_B = ori_dot->get_transpose_B();
     set_transpose(trans_A, trans_B);
     m_reduction_axes_count = ori_dot->get_reduction_axes_count();
-
+    m_quantize_bit = quantize_bit;
 
 }
 
