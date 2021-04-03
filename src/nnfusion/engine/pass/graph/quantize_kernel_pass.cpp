@@ -4,6 +4,8 @@
 #include "quantize_kernel_pass.hpp"
 #include <map>
 #include <queue>
+#include <string>
+#include <vector>
 #include "gflags/gflags.h"
 #include "kernel_selection.hpp"
 #include "nnfusion/core/graph/gnode.hpp"
@@ -19,6 +21,7 @@ using namespace nnfusion::graph;
 using namespace nnfusion::pass::graph;
 using namespace nnfusion::kernels;
 using namespace nnfusion::element;
+// using namespace std;
 
 class QuantizeKernelOptimizer
 {
@@ -46,6 +49,18 @@ public:
             quantize_cfg[name] = n_bit;
         }
     }
+
+    vector<std::shared_ptr<GNode>> find_successors(std::shared_ptr<GNode> gnode)
+    {
+        vector<std::shared_ptr<GNode>> successors;
+        const std::set<std::shared_ptr<nnfusion::graph::Edge>>& out_edges = gnode->get_out_edges();
+        for (auto edge : out_edges)
+        {
+            successors.push_back(edge->get_dst());
+        }
+        return successors;
+    }
+
     bool optimize()
     {
         if (!cache_manager->is_valid())
@@ -63,6 +78,24 @@ public:
             std::shared_ptr<KernelContext> ctx(new KernelContext(node));
             std::string identifier = ctx->generate_identifier();
             std::cout << "Identifier: " << identifier << std::endl;
+            std::vector<std::shared_ptr<GNode>> successors = find_successors(node);
+            int succ_bit = 32;
+            int succ_quantized = 0;
+            for (auto succ_node : successors)
+            {
+                std::string succ_name = succ_node->get_name();
+                if (quantize_cfg.count(succ_name))
+                {
+                    if (succ_quantized)
+                        // following nodes should have the same quantize config
+                        NNFUSION_CHECK(succ_bit == quantize_cfg[succ_name]);
+                    succ_quantized += 1;
+                    succ_bit = quantize_cfg[succ_name];
+                }
+            }
+            NNFUSION_CHECK(succ_quantized == 0 || succ_quantized == successors.size());
+            identifier += "quantize_" + to_string(quantize_bit) + "bit_" + to_string(succ_bit) + "bit";
+            std::cout << "New Identifier:" << identifier<<std::endl;
             if (node->get_op_type() == "Dot")
             {
                 // update the model graph
@@ -74,9 +107,7 @@ public:
                 {
                 }
             }
-            else if (node->get_op_type() == "Conv2d")
-            {
-            }
+            else if (node->get_op_type() == "Conv2d") {}
         }
         return true;
     }
