@@ -15,6 +15,7 @@
 #include "nnfusion/core/operators/op_define/noop.hpp"
 #include "nnfusion/core/operators/op_define/reshape.hpp"
 #include "nnfusion/core/operators/util/elementwise_arithmetic.hpp"
+#include "nnfusion/core/kernels/cuda_gpu/cuda_emitter.hpp"
 
 DEFINE_string(fquantize_cfg, "", "Quantize cfg for the target model");
 using namespace nnfusion::graph;
