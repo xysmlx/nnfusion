@@ -21,6 +21,8 @@ using namespace nnfusion::graph;
 using namespace nnfusion::pass::graph;
 using namespace nnfusion::kernels;
 using namespace nnfusion::element;
+using namespace nnfusion;
+using namespace std;
 // using namespace std;
 
 class QuantizeKernelOptimizer
@@ -61,6 +63,90 @@ public:
         return successors;
     }
 
+    std::pair<NNFusion_DeviceType, kernels::KernelEmitter::Pointer>
+        fetch_quantize_kernel(shared_ptr<cache::KernelCacheManager> cache_manager,
+                              shared_ptr<GNode> node,
+                              NNFusion_DeviceType devtype)
+    {
+        std::cout << node->get_unique_name() << " " << node->get_name() << std::endl;
+
+        int quantize_bit = quantize_cfg[node->get_name()];
+        std::shared_ptr<KernelContext> ctx(new KernelContext(node));
+        std::string identifier = ctx->generate_identifier();
+        std::cout << "Identifier: " << identifier << std::endl;
+        std::vector<std::shared_ptr<GNode>> successors = find_successors(node);
+        int succ_bit = 32;
+        int succ_quantized = 0;
+        for (auto succ_node : successors)
+        {
+            std::string succ_name = succ_node->get_name();
+            std::cout<<"Following nodes: "<<succ_name<<std::endl;
+            if (quantize_cfg.count(succ_name))
+            {
+                if (succ_quantized)
+                    // following nodes should have the same quantize config
+                    NNFUSION_CHECK(succ_bit == quantize_cfg[succ_name]);
+                succ_quantized += 1;
+                succ_bit = quantize_cfg[succ_name];
+            }
+        }
+        NNFUSION_CHECK(succ_quantized == 0 || succ_quantized == successors.size());
+        // Generate the new identifier: ori_identifier + ${in_quantize}bit+${out_quatize}bit
+
+        const std::vector<std::string> SUPPORT_PLATFORM = {"CUDA_GPU"};
+        if (identifier != "" &&
+            find(SUPPORT_PLATFORM.begin(), SUPPORT_PLATFORM.end(), get_device_str(devtype)) !=
+            SUPPORT_PLATFORM.end())
+        {
+            identifier +=
+            "quantize_" + to_string(quantize_bit) + "bit_" + to_string(succ_bit) + "bit";
+            std::cout << "New Identifier:" << identifier << std::endl;
+            auto fetched = cache_manager->fetch_all(identifier, get_device_str(devtype));
+            {
+                for (auto kernel_entry:fetched)
+                {
+            nnfusion::cache::KernelEntry_p kernel_entry = nullptr;
+            double kernel_time = 1000000000;
+            for (auto fetch_entry : fetched)
+            {
+                if (fetch_entry->source == "Quantize")
+                {
+                    if (kernel_entry == nullptr ||
+                        fetch_entry->miscs["time"] < kernel_time)
+                    {
+                        kernel_entry = fetch_entry;
+                        kernel_time = fetch_entry->miscs["time"];
+                    }
+                }
+                }
+            }
+            if (kernel_entry != nullptr)
+            {
+                if (kernel_entry->tags.find("BlockCudaEmitter") != kernel_entry->tags.end())
+                {
+                    auto kernel =
+                        std::make_shared<kernels::cuda::CacheBlockCudaEmitter>(ctx, kernel_entry);
+                    if (kernel->get_or_emit_source())
+                    {
+                        return std::make_pair(devtype, kernel);
+                    }
+                }
+                else
+                {
+                    NNFUSION_CHECK(kernel_entry->tags.find("CudaEmitter") !=
+                                   kernel_entry->tags.end());
+                    auto kernel =
+                        std::make_shared<kernels::cuda::CacheCudaEmitter>(ctx, kernel_entry);
+                    if (kernel->get_or_emit_source())
+                    {
+                        return std::make_pair(devtype, kernel);
+                    }
+                }
+            }
+        }
+        return std::make_pair(devtype, nullptr);
+
+    }
     bool optimize()
     {
         if (!cache_manager->is_valid())
@@ -71,31 +157,24 @@ public:
         auto gnodes = m_graph->get_ordered_ops();
         for (auto node : gnodes)
         {
-            std::cout << node->get_unique_name() << " " << node->get_name() << std::endl;
-            if (quantize_cfg.count(node->get_name()) == 0)
+            if ((*node)["Kernel_Selection_Result"].is_valid())
+                // already have a matched kernel
                 continue;
-            int quantize_bit = quantize_cfg[node->get_name()];
-            std::shared_ptr<KernelContext> ctx(new KernelContext(node));
-            std::string identifier = ctx->generate_identifier();
-            std::cout << "Identifier: " << identifier << std::endl;
-            std::vector<std::shared_ptr<GNode>> successors = find_successors(node);
-            int succ_bit = 32;
-            int succ_quantized = 0;
-            for (auto succ_node : successors)
+            if (!(*node)["DeviceType"].is_valid())
             {
-                std::string succ_name = succ_node->get_name();
-                if (quantize_cfg.count(succ_name))
-                {
-                    if (succ_quantized)
-                        // following nodes should have the same quantize config
-                        NNFUSION_CHECK(succ_bit == quantize_cfg[succ_name]);
-                    succ_quantized += 1;
-                    succ_bit = quantize_cfg[succ_name];
-                }
+                NNFUSION_CHECK_FAIL()
+                    << "GNode DeviceType should be assigned before this pass：" << node->get_name();
             }
-            NNFUSION_CHECK(succ_quantized == 0 || succ_quantized == successors.size());
-            identifier += "quantize_" + to_string(quantize_bit) + "bit_" + to_string(succ_bit) + "bit";
-            std::cout << "New Identifier:" << identifier<<std::endl;
+            auto n_device_type = (*node)["DeviceType"].as<NNFusion_DeviceType>();
+            NNFUSION_CHECK(n_device_type != UNKNOWN);
+            if(quantize_cfg.count(node->get_name())==0)
+                continue;
+            auto ans = fetch_quantize_kernel(cache_manager, node, n_device_type);
+            if (ans.second==nulptr)
+                // No matched kernel found in the kernel cache
+                continue;
+            (*node)["Kernel_Selection_Result"] = ans;
+            // Modify the model graph here according to the quantization config
             if (node->get_op_type() == "Dot")
             {
                 // update the model graph
@@ -107,7 +186,10 @@ public:
                 {
                 }
             }
-            else if (node->get_op_type() == "Conv2d") {}
+            else if (node->get_op_type() == "Conv2d")
+            {
+            }
+            // Get the corresponding kernel from the Kernel Cache
         }
         return true;
     }
