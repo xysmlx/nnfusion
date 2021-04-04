@@ -102,9 +102,6 @@ public:
             "quantize_" + to_string(quantize_bit) + "bit_" + to_string(succ_bit) + "bit";
             std::cout << "New Identifier:" << identifier << std::endl;
             auto fetched = cache_manager->fetch_all(identifier, get_device_str(devtype));
-            {
-                for (auto kernel_entry:fetched)
-                {
             nnfusion::cache::KernelEntry_p kernel_entry = nullptr;
             double kernel_time = 1000000000;
             for (auto fetch_entry : fetched)
@@ -118,7 +115,7 @@ public:
                         kernel_time = fetch_entry->miscs["time"];
                     }
                 }
-                }
+                
             }
             if (kernel_entry != nullptr)
             {
@@ -169,8 +166,9 @@ public:
             NNFUSION_CHECK(n_device_type != UNKNOWN);
             if(quantize_cfg.count(node->get_name())==0)
                 continue;
+            int quantize_bit = quantize_cfg[node->get_name()];
             auto ans = fetch_quantize_kernel(cache_manager, node, n_device_type);
-            if (ans.second==nulptr)
+            if (ans.second==nullptr)
                 // No matched kernel found in the kernel cache
                 continue;
             (*node)["Kernel_Selection_Result"] = ans;
@@ -180,7 +178,7 @@ public:
                 // update the model graph
                 if (quantize_bit == 8)
                 {
-                    // DotQuantizeOptimize8bit(node);
+                    DotQuantizeOptimize8bit(node);
                 }
                 else
                 {
