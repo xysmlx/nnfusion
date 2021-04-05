@@ -1,0 +1,63 @@
+[
+    {
+        "tvm_func_name": "dot_example_",
+        "op_type": "Dot",
+        "parameters": {
+            "arg0_shape": [
+                1,
+                256
+            ],
+            "arg1_shape": [
+                256,
+                256
+            ],
+            "out_shape": [1, 256],
+            "transpose_A":false,
+            "transpose_B":false
+        },
+        "code": "extern \"C\" __global__ void MatrixMulCUDA_8bit(uint8_t *A, uint8_t *W, unsigned int *Multi_w_zp, uint8_t *W_zp, unsigned int *ZP_accu, unsigned int k, unsigned int n, int integer, int shift_val, uint8_t *C,){
+            int bx = blockIdx.x;
+            int by = blockIdx.y;
+            int tx = threadIdx.x;
+            int ty = threadIdx.y;
+        
+            int aBegin = BLOCK_SIZE * by * k;
+            int aEnd = aBegin + k - 1;
+        
+            int bBegin = BLOCK_SIZE * bx * k;
+        
+            __shared__ uint8_t As[BLOCK_SIZE][BLOCK_SIZE];
+            __shared__ uint8_t Bs[BLOCK_SIZE][BLOCK_SIZE];
+            __shared__ uint8_t Wzp[BLOCK_SIZE][BLOCK_SIZE];
+        
+            unsigned int cSub = 0;
+            unsigned int azpSub = 0;
+            for(int i = aBegin, j = bBegin; i <= aEnd; i += BLOCK_SIZE, j += BLOCK_SIZE){
+                As[ty][tx] = A[i + ty * k + tx];
+                Bs[ty][tx] = W[j + ty * k + tx];
+                Wzp[ty][tx] = W_zp[i + ty * k + tx];
+        
+                __syncthreads();
+        
+                for(int k = 0; k < 32; k += 4){
+                    unsigned int pack_val1 = FETCH_UINT32(As[ty][k]);
+                    unsigned int pack_val2 = FETCH_UINT32(Bs[tx][k]);
+                    unsigned int pack_val3 = FETCH_UINT32(Wzp[ty][k]);
+                    cSub = __dp4a(pack_val1, pack_val2, cSub);
+                    azpSub = __dp4a(pack_val1, pack_val3, azpSub);
+                }
+                __syncthreads();
+            }
+            
+            int cx = by * BLOCK_SIZE + ty;
+            int cy = bx * BLOCK_SIZE + tx;
+        
+            cSub = cSub - Multi_w_zp[cx*n+cy] - azpSub + ZP_accu[cx*n+cy];
+            cSub = (cSub * integer) >> shift_val;
+        
+            C[cx*n+cy] = (uint8_t)cSub;
+        }",
+        "gridDim": [8,1,1],
+        "blockDim": [128,1,1]
+    }
+]
