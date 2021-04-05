@@ -210,8 +210,9 @@ def parse(code, parameters):
     new_code = sync_code = func_body
 
     parser.parse(func_sig)
-
+    print(parameters)
     for (i, dtype) in enumerate(parameters["dtype"]):
+        print(dtype, arguments["dtype"][i])
         assert dtype == arguments["dtype"][i]
         if parameters["symbol"][i] != arguments["symbol"][i]:
             new_code = "{} {} = {};\n".format(
