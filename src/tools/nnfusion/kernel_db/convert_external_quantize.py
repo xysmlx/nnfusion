@@ -154,7 +154,7 @@ def gen_config(op_type, kernel, shared_memory, num_sync):
             "function_signature"] = "extern \"C\" __global__  void (float* __restrict__ input0,  float* __restrict__ input1,  float* __restrict__ output0)"
     elif (op_type == "QuantizeDot"):
         config["in_shape"] = [kernel["parameters"]
-                              ["arg0_shape"], kernel["parameters"]["arg1_shape"]]
+                              ["arg0_shape"], kernel["parameters"]["arg1_shape"], kernel["parameters"]["arg2_shape"], kernel["parameters"]["arg3_shape"], kernel["parameters"]["arg4_shape"], kernel["parameters"]["arg5_shape"], kernel["parameters"]["arg6_shape"]]
         config["out_shape"] = [kernel["parameters"]["out_shape"]]
         config["in_quantize_bit"] = kernel["parameters"]["in_quantize_bit"]
         config["out_quantize_bit"] = kernel["parameters"]["out_quantize_bit"]
