@@ -41,6 +41,10 @@ param_list = {
         'symbol': ['input0', 'input1', 'output0'],
         'dtype': ['float*', 'float*', 'float*']
     },
+    "QuantizeDot": {
+        'symbol': ['input0', 'input1', 'input2', 'input3', 'input4', 'input5', 'output0'],
+        'dtype': ['float*', 'float*', 'float*', 'float*', 'float*', 'float*', "float*"]
+    },
     "Fused_Convolution_Relu": {
         'symbol': ['input0', 'input1', 'output0'],
         'dtype': ['float*', 'float*', 'float*']
@@ -109,9 +113,11 @@ def gen_key(data, dtype="float"):
                                       for i in parameters["window_stride"]) + "}"
         key += "Shape{" + ", ".join(str(i)
                                     for i in parameters["padding_below"]) + "}"
+    elif op_type == "QuantizeDot":
+        key += "quantize" + str(data["in_quantize_bit"]) + 'bit_' + str(data["out_quantize_bit"]) + "bit"
     else:
         pass
-
+    print("Identifier:", key)
     return key
 
 
@@ -146,6 +152,14 @@ def gen_config(op_type, kernel, shared_memory, num_sync):
         config["out_shape"] = [kernel["parameters"]["out_shape"]]
         config[
             "function_signature"] = "extern \"C\" __global__  void (float* __restrict__ input0,  float* __restrict__ input1,  float* __restrict__ output0)"
+    elif (op_type == "QuantizeDot"):
+        config["in_shape"] = [kernel["parameters"]
+                              ["arg0_shape"], kernel["parameters"]["arg1_shape"]]
+        config["out_shape"] = [kernel["parameters"]["out_shape"]]
+        config["in_quantize_bit"] = kernel["parameters"]["in_quantize_bit"]
+        config["out_quantize_bit"] = kernel["parameters"]["out_quantize_bit"]
+        config[
+            "function_signature"] = "extern \"C\" __global__  void (float* __restrict__ input0,  float* __restrict__ input1, float* __restrict__ input2,  float* __restrict__ input3, float* __restrict__ input4, float* __restrict__ input5, float* __restrict__ input6, float* __restrict__ output0)"
     elif (op_type == "Relu"):
         config["in_shape"] = [kernel["parameters"]["input_shape"]]
         config["out_shape"] = [kernel["parameters"]["output_shape"]]
@@ -174,7 +188,6 @@ def insert_db(name, resource, platform="CUDA_GPU", tags="", profile="Tesla V100-
     block_function_body = in_file.read()
     data["block_function_body"] = block_function_body
 
-    
     key = data["function_body"]
     identifier = gen_key(data)
     op_type = data["op_type"]
@@ -225,7 +238,8 @@ def insert_db(name, resource, platform="CUDA_GPU", tags="", profile="Tesla V100-
     print(identifier)
     # overwrite the same implementation
     c.execute("DELETE FROM KernelCache WHERE Key = ?", (key,))
-    c.execute("INSERT INTO KernelCache (Key,Identifier,OpType,Attributes,Source,DeviceType,Function,Tags,Miscs) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)", (key, identifier, op_type, attributes, source, device_type, function, tags, miscs))
+    c.execute("INSERT INTO KernelCache (Key,Identifier,OpType,Attributes,Source,DeviceType,Function,Tags,Miscs) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+              (key, identifier, op_type, attributes, source, device_type, function, tags, miscs))
     conn.commit()
     conn.close()
 
@@ -246,9 +260,10 @@ if __name__ == '__main__':
             kernel["code"], param_list[op_type])
 
         config = gen_config(op_type, kernel, shared_memory, num_sync=0)
-
+        # import pdb; pdb.set_trace()
         prepare_file(signature, sync_code, config,
                      db_path + "profile/", parse=True)
+        import pdb; pdb.set_trace()
         num_sync = log_sync(signature, db_path + "profile/")
         config["num_syncthreads"] = num_sync
         config["function_body"] = func_body
@@ -265,7 +280,7 @@ if __name__ == '__main__':
 
         default_tags = ""
         default_tags += "KernelEmitter,CudaEmitter,BlockCudaEmitter"
-        if (op_type == "Dot"):
+        if (op_type == "Dot" or op_type == "QuantizeDot"):
             # Todo: move the transpose information into identifier
             default_tags += kernel["parameters"]["transpose_A"] * \
                 ",transA" + kernel["parameters"]["transpose_B"]*",transB"
