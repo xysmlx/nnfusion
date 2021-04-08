@@ -31,10 +31,12 @@ void QuantizeDot::validate_and_infer_types(std::shared_ptr<graph::GNode> gnode)
     nnfusion::element::Type result_et;
     switch (m_quantize_bit){
         case 8:
-            result_et = nnfusion::element::from<int8_t>();
+            // result_et = nnfusion::element::from<int8_t>();
+            result_et = nnfusion::element::from<float>();
             break;
         case 16:
-            result_et = nnfusion::element::from<nnfusion::element::half>();
+            // result_et = nnfusion::element::from<nnfusion::element::half>();
+            result_et = nnfusion::element::from<float>();
             break;
         default:
             throw "Not supported quantize config";
