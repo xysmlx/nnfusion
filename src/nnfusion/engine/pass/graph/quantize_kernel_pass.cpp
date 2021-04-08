@@ -200,9 +200,9 @@ public:
                     weight_count *= i;
                 auto out_shape = cur_node->get_output_shape(0);
                 for (int i : out_shape)
-                    weight_count *= i;
+                    out_count *= i;
                 // TODO unique_name vs name
-                int quantize_bit = quantize_cfg[cur_node->get_unique_name()];
+                int quantize_bit = quantize_cfg[cur_node->get_name()];
                 // we filled the ramdom data temporarily
                 float* tmp_weight = (float*)malloc(sizeof(float) * weight_count);
                 float* tmp_out = (float*)malloc(sizeof(float) * out_count);
@@ -255,7 +255,7 @@ public:
                 m_graph->add_node(scale_integer_node);
                 m_graph->add_node(scale_shift_node);
 
-                auto quan_dot = std::make_shared<op::QuantizeDot>(dense_op, 8);
+                auto quan_dot = std::make_shared<op::QuantizeDot>(dense_op, quantize_bit);
                 auto quan_dot_node = std::make_shared<GNode>(quan_dot, GNodeVector({}));
                 auto ori_outputs = cur_node->get_outputs();
                 //???
