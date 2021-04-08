@@ -195,6 +195,12 @@ public:
             auto src_node = in_edge->get_src();
             if (src_node->is_constant())
             {
+                int constant_pos = in_edge->get_dst_input();
+                if( constant_pos!=1 ){
+                    NNFUSION_LOG(NNFUSION_WARNING) << "The constant input is the first input of Dot, skip this node";
+                    assert(constant_pos==1);
+                    continue;
+                }
                 auto weight_constant =
                     std::dynamic_pointer_cast<nnfusion::op::Constant>(src_node->get_op_ptr());
                 auto w_shape = weight_constant->get_shape();
@@ -259,7 +265,9 @@ public:
                 m_graph->add_node(scale_shift_node);
 
                 auto quan_dot = std::make_shared<op::QuantizeDot>(dense_op, quantize_bit);
-                auto quan_dot_node = std::make_shared<GNode>(quan_dot, GNodeVector({}));
+                int constant_pos = in_edge->get_dst_input();
+                auto activate_node = cur_node->get_in_edge(1-constant_pos)->get_src();
+                auto quan_dot_node = std::make_shared<GNode>(quan_dot, GNodeVector({activate_node, quan_w_node, w_mul_zp_node, w_zp_node, zp_acc_node, scale_integer_node, scale_shift_node}));
                 auto ori_outputs = cur_node->get_outputs();
                 //???
                 for (int i = 0; i < ori_outputs.size(); i++)
@@ -271,6 +279,7 @@ public:
                 m_graph->remove_node(src_node);
 
                 has_constant = true;
+                break;
             }
         }
     }
