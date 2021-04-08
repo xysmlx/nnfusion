@@ -165,6 +165,7 @@ public:
             }
             auto n_device_type = (*node)["DeviceType"].as<NNFusion_DeviceType>();
             NNFUSION_CHECK(n_device_type != UNKNOWN);
+            std::cout << "Quantize Node name" << node->get_name() << std::endl;
             if(quantize_cfg.count(node->get_name())==0)
                 continue;
             int quantize_bit = quantize_cfg[node->get_name()];
