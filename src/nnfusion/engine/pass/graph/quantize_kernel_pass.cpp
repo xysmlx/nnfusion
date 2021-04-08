@@ -99,23 +99,22 @@ public:
             find(SUPPORT_PLATFORM.begin(), SUPPORT_PLATFORM.end(), get_device_str(devtype)) !=
             SUPPORT_PLATFORM.end())
         {
-            identifier +=
-            "quantize_" + to_string(quantize_bit) + "bit_" + to_string(succ_bit) + "bit";
+            identifier = "Quantize" + identifier + \
+            "quantize" + to_string(quantize_bit) + "bit_" + to_string(succ_bit) + "bit";
             std::cout << "New Identifier:" << identifier << std::endl;
             auto fetched = cache_manager->fetch_all(identifier, get_device_str(devtype));
             nnfusion::cache::KernelEntry_p kernel_entry = nullptr;
             double kernel_time = 1000000000;
-            for (auto fetch_entry : fetched)
+	    std::cout<<"Fetch"<<fetched.size()<<" Kernels from Kernel Cache!!!!!"<<std::endl;
+	    for (auto fetch_entry : fetched)
             {
-                if (fetch_entry->source == "Quantize")
-                {
+		    std::cout<<"Find Matched quantize kernel"<<std::endl;
                     if (kernel_entry == nullptr ||
                         fetch_entry->miscs["time"] < kernel_time)
                     {
                         kernel_entry = fetch_entry;
                         kernel_time = fetch_entry->miscs["time"];
                     }
-                }
                 
             }
             if (kernel_entry != nullptr)
@@ -165,7 +164,7 @@ public:
             }
             auto n_device_type = (*node)["DeviceType"].as<NNFusion_DeviceType>();
             NNFUSION_CHECK(n_device_type != UNKNOWN);
-            std::cout << "Quantize Node name" << node->get_name() << std::endl;
+            std::cout << "Quantize Node name: " << node->get_name() <<"Type: "<<node->get_op_type()<< std::endl;
             if(quantize_cfg.count(node->get_name())==0)
                 continue;
             int quantize_bit = quantize_cfg[node->get_name()];

@@ -75,6 +75,9 @@ conv_family = ["Convolution", "Fused_Convolution_Relu"] + conv_augmented
 def gen_key(data, dtype="float"):
     op_type = data["op_type"]
     in_shape = data["in_shape"]
+    # still use the first two input shape to construct the identifier for thw quantize node
+    if op_type == 'QuantizeDot':
+        in_shape = data['in_shape'][:2]
     out_shape = data["out_shape"]
     parameters = data["parameters"] if "parameters" in data else {}
 

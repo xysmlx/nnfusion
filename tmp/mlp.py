@@ -33,7 +33,7 @@ class MLP(nn.Module):
         x = F.relu(self.fc3(x))
         return x
 
-model = MLP()
-dummy_input = torch.rand(256,256)
+model = MLP().cuda()
+dummy_input = torch.rand(256,256).cuda()
 # print(model(data))
 torch.onnx.export(model, dummy_input, 'mlp.onnx', verbose=True)
