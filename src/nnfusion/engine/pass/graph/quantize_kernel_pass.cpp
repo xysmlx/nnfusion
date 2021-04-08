@@ -102,6 +102,7 @@ public:
             identifier = "Quantize" + identifier + \
             "quantize" + to_string(quantize_bit) + "bit_" + to_string(succ_bit) + "bit";
             std::cout << "New Identifier:" << identifier << std::endl;
+	    std::cout<<"Device String: "<< get_device_str(devtype)<<std::endl;
             auto fetched = cache_manager->fetch_all(identifier, get_device_str(devtype));
             nnfusion::cache::KernelEntry_p kernel_entry = nullptr;
             double kernel_time = 1000000000;
@@ -109,27 +110,17 @@ public:
 	    for (auto fetch_entry : fetched)
             {
 		    std::cout<<"Find Matched quantize kernel"<<std::endl;
-                    if (kernel_entry == nullptr ||
-                        fetch_entry->miscs["time"] < kernel_time)
+                    if (kernel_entry == nullptr )
+                      //fetch_entry->miscs["time"] < kernel_time)
                     {
                         kernel_entry = fetch_entry;
-                        kernel_time = fetch_entry->miscs["time"];
+			break;
+                        // kernel_time = fetch_entry->miscs["time"];
                     }
                 
             }
             if (kernel_entry != nullptr)
             {
-                if (kernel_entry->tags.find("BlockCudaEmitter") != kernel_entry->tags.end())
-                {
-                    auto kernel =
-                        std::make_shared<kernels::cuda::CacheBlockCudaEmitter>(ctx, kernel_entry);
-                    if (kernel->get_or_emit_source())
-                    {
-                        return std::make_pair(devtype, kernel);
-                    }
-                }
-                else
-                {
                     NNFUSION_CHECK(kernel_entry->tags.find("CudaEmitter") !=
                                    kernel_entry->tags.end());
                     auto kernel =
@@ -138,7 +129,6 @@ public:
                     {
                         return std::make_pair(devtype, kernel);
                     }
-                }
             }
         }
         return std::make_pair(devtype, nullptr);
@@ -173,7 +163,8 @@ public:
                 // No matched kernel found in the kernel cache
                 continue;
             (*node)["Kernel_Selection_Result"] = ans;
-            // Modify the model graph here according to the quantization config
+	    std::cout<<" Bind the quantize kernel!!" << std::endl;
+	    // Modify the model graph here according to the quantization config
             if (node->get_op_type() == "Dot")
             {
                 // update the model graph

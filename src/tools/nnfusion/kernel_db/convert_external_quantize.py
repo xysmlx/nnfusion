@@ -282,7 +282,7 @@ if __name__ == '__main__':
             f.write(new_code)
 
         default_tags = ""
-        default_tags += "KernelEmitter,CudaEmitter,BlockCudaEmitter"
+        default_tags += "KernelEmitter,CudaEmitter"
         if (op_type == "Dot" or op_type == "QuantizeDot"):
             # Todo: move the transpose information into identifier
             default_tags += kernel["parameters"]["transpose_A"] * \
