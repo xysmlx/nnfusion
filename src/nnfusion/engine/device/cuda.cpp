@@ -63,12 +63,12 @@ CudaEngine::CudaEngine()
     g_passes->push_back(make_shared<ReduceFusionPass>());
 
     g_passes->push_back(make_shared<PatternSubstitutionPass>());
-
+    // Dispatch the device
+    g_passes->push_back(make_shared<DefaultGNodeDeviceDispatcher>());
     g_passes->push_back(make_shared<SparseKernelPass>());
     g_passes->push_back(make_shared<QuantizeKernelPass>());
 
     // Kernel selection
-    g_passes->push_back(make_shared<DefaultGNodeDeviceDispatcher>());
     g_passes->push_back(make_shared<KernelTuning>());
     g_passes->push_back(make_shared<ProfilingBasedKernelSelector>());
     g_passes->push_back(make_shared<FetchBasedSelector>());
