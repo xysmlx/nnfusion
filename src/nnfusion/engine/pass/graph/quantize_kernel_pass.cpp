@@ -142,6 +142,9 @@ public:
             return true;
         }
         auto gnodes = m_graph->get_ordered_ops();
+	for (auto node: gnodes){
+		std::cout<<"###### Node name:"<< node->get_name()<<" Unique name"<<node->get_unique_name()<<"  Type:"<<node->get_op_type()<<std::endl;
+	}
         for (auto node : gnodes)
         {
             if ((*node)["Kernel_Selection_Result"].is_valid())
