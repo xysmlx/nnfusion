@@ -190,11 +190,13 @@ public:
     {
         std::cout << "In DotQuantizeOptimize 8bit" << std::endl;
         bool has_constant = false;
+	NNFusion_DeviceType dt = nnfusion::get_device_type("CUDA_GPU");
         for (auto in_edge : cur_node->get_in_edges())
         {
             auto src_node = in_edge->get_src();
             if (src_node->is_constant())
             {
+		int ori_device_id = (*src_node)["DeviceID"];
                 int constant_pos = in_edge->get_dst_input();
                 if( constant_pos!=1 ){
                     NNFUSION_LOG(NNFUSION_WARNING) << "The constant input is the first input of Dot, skip this node";
@@ -225,37 +227,48 @@ public:
                 //update the output
                 quan_w_node->get_op_ptr()->revalidate_and_infer_types(
                     quan_w_node->shared_from_this());
-
+		quan_w_node->Set<NNFusion_DeviceType>("DeviceType", move(dt));
+		quan_w_node->Set<int>("DeviceID",move( ori_device_id));
                 // Weight * input zero point
                 auto w_mul_zp = std::make_shared<op::Constant>(
                     from<float>(), nnfusion::Shape(out_shape), static_cast<void*>(tmp_out));
                 auto w_mul_zp_node = std::make_shared<GNode>(w_mul_zp, GNodeVector({}));
                 w_mul_zp->revalidate_and_infer_types(w_mul_zp_node->shared_from_this());
+		w_mul_zp_node->Set<NNFusion_DeviceType>("DeviceType", move(dt));
+		w_mul_zp_node->Set<int>("DeviceID",move( ori_device_id));
 
                 // zero points of the weight tensor
                 auto w_zp = std::make_shared<op::Constant>(
                     from<float>(), nnfusion::Shape(w_shape), static_cast<void*>(tmp_weight));
                 auto w_zp_node = std::make_shared<GNode>(w_zp, GNodeVector({}));
                 w_zp->revalidate_and_infer_types(w_zp_node);
+		w_zp_node->Set<NNFusion_DeviceType>("DeviceType", move(dt));
+		w_zp_node->Set<int>("DeviceID",move( ori_device_id));
 
                 auto zp_acc = std::make_shared<op::Constant>(
                     from<float>(), nnfusion::Shape(out_shape), static_cast<void*>(tmp_out));
                 auto zp_acc_node = std::make_shared<GNode>(zp_acc, GNodeVector({}));
                 zp_acc->revalidate_and_infer_types(zp_acc_node->shared_from_this());
-
+		zp_acc_node->Set<NNFusion_DeviceType>("DeviceType", move(dt));
+		zp_acc_node->Set<int>("DeviceID",move( ori_device_id));
+		
                 auto scale_integer =
                     std::make_shared<op::Constant>(from<float>(),
                                                    nnfusion::Shape(vector<size_t>({1})),
                                                    static_cast<void*>(tmp_scale));
                 auto scale_integer_node = std::make_shared<GNode>(scale_integer, GNodeVector({}));
                 scale_integer->revalidate_and_infer_types(scale_integer_node->shared_from_this());
-
+		scale_integer_node->Set<NNFusion_DeviceType>("DeviceType", move(dt));
+		scale_integer_node->Set<int>("DeviceID",move( ori_device_id));
+		
                 auto scale_shift =
                     std::make_shared<op::Constant>(from<float>(),
                                                    nnfusion::Shape(vector<size_t>({1})),
                                                    static_cast<void*>(tmp_scale));
                 auto scale_shift_node = std::make_shared<GNode>(scale_shift, GNodeVector({}));
                 scale_shift->revalidate_and_infer_types(scale_shift_node->shared_from_this());
+		scale_shift_node->Set<NNFusion_DeviceType>("DeviceType", move(dt));
+		scale_shift_node->Set<int>("DeviceID",move( ori_device_id));
 
                 m_graph->add_node(quan_w_node);
                 m_graph->add_node(w_mul_zp_node);
@@ -265,10 +278,16 @@ public:
                 m_graph->add_node(scale_shift_node);
 
                 auto quan_dot = std::make_shared<op::QuantizeDot>(dense_op, quantize_bit);
-                int constant_pos = in_edge->get_dst_input();
                 auto activate_node = cur_node->get_in_edge(1-constant_pos)->get_src();
-                auto quan_dot_node = std::make_shared<GNode>(quan_dot, GNodeVector({activate_node, quan_w_node, w_mul_zp_node, w_zp_node, zp_acc_node, scale_integer_node, scale_shift_node}));
-                auto ori_outputs = cur_node->get_outputs();
+		GNodeVector input_gv({activate_node, quan_w_node, w_mul_zp_node, w_zp_node, zp_acc_node, scale_integer_node, scale_shift_node});
+                auto quan_dot_node = std::make_shared<GNode>(quan_dot, input_gv);
+		quan_dot_node->Set<NNFusion_DeviceType>("DeviceType", move(dt));
+		quan_dot_node->Set<int>("DeviceID",move( ori_device_id));
+		/// Remember after set the input node vector, we still need to set the edge manually!
+		for(int i=0; i<input_gv.size();i++){
+		    m_graph->add_edge(input_gv.at(i), 0, quan_dot_node, i);	
+		}
+		auto ori_outputs = cur_node->get_outputs();
                 //???
                 for (int i = 0; i < ori_outputs.size(); i++)
                 {
