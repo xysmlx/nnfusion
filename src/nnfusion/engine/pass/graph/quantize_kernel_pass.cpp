@@ -165,15 +165,13 @@ public:
             if (ans.second==nullptr)
                 // No matched kernel found in the kernel cache
                 continue;
-            (*node)["Kernel_Selection_Result"] = ans;
-	    std::cout<<" Bind the quantize kernel!!" << std::endl;
 	    // Modify the model graph here according to the quantization config
             if (node->get_op_type() == "Dot")
             {
                 // update the model graph
                 if (quantize_bit == 8)
                 {
-                    DotQuantizeOptimize8bit(node);
+                    DotQuantizeOptimize8bit(node, ans);
                 }
                 else
                 {
@@ -186,7 +184,7 @@ public:
         }
         return true;
     }
-    void DotQuantizeOptimize8bit(std::shared_ptr<GNode> cur_node)
+    void DotQuantizeOptimize8bit(std::shared_ptr<GNode> cur_node, std::pair<NNFusion_DeviceType, kernels::KernelEmitter::Pointer> matched_kernel)
     {
         std::cout << "In DotQuantizeOptimize 8bit" << std::endl;
         bool has_constant = false;
@@ -215,14 +213,17 @@ public:
                 // TODO unique_name vs name
                 int quantize_bit = quantize_cfg[cur_node->get_name()];
                 // we filled the ramdom data temporarily
-                float* tmp_weight = (float*)malloc(sizeof(float) * weight_count);
-                float* tmp_out = (float*)malloc(sizeof(float) * out_count);
-                float* tmp_scale = (float*)malloc(sizeof(float));
+                float* quan_weight_data = (float*)malloc(sizeof(float) * weight_count);
+                float* w_mul_zp_data = (float*)malloc(sizeof(float) * out_count);
+                float* w_zp_data = (float*)malloc(sizeof(float) * weight_count);
+                float* zp_acc_data = (float*)malloc(sizeof(float) * out_count);
+                float* scale_integer_data = (float*)malloc(sizeof(float));
+                float* scale_shift_data = (float*)malloc(sizeof(float));
                 auto dense_op = std::dynamic_pointer_cast<op::Dot>(cur_node->get_op_ptr());
                 // quantized weight of the weight
                 // The values is not right and will be filled after nnfusion.
                 auto quan_w = std::make_shared<op::Constant>(
-                    from<float>(), nnfusion::Shape(w_shape), static_cast<void*>(tmp_out));
+                    from<float>(), nnfusion::Shape(w_shape), static_cast<void*>(quan_weight_data));
                 auto quan_w_node = std::make_shared<GNode>(quan_w, GNodeVector({}));
                 //update the output
                 quan_w_node->get_op_ptr()->revalidate_and_infer_types(
@@ -231,7 +232,7 @@ public:
 		quan_w_node->Set<int>("DeviceID",move( ori_device_id));
                 // Weight * input zero point
                 auto w_mul_zp = std::make_shared<op::Constant>(
-                    from<float>(), nnfusion::Shape(out_shape), static_cast<void*>(tmp_out));
+                    from<float>(), nnfusion::Shape(out_shape), static_cast<void*>(w_mul_zp_data));
                 auto w_mul_zp_node = std::make_shared<GNode>(w_mul_zp, GNodeVector({}));
                 w_mul_zp->revalidate_and_infer_types(w_mul_zp_node->shared_from_this());
 		w_mul_zp_node->Set<NNFusion_DeviceType>("DeviceType", move(dt));
@@ -239,14 +240,14 @@ public:
 
                 // zero points of the weight tensor
                 auto w_zp = std::make_shared<op::Constant>(
-                    from<float>(), nnfusion::Shape(w_shape), static_cast<void*>(tmp_weight));
+                    from<float>(), nnfusion::Shape(w_shape), static_cast<void*>(w_zp_data));
                 auto w_zp_node = std::make_shared<GNode>(w_zp, GNodeVector({}));
                 w_zp->revalidate_and_infer_types(w_zp_node);
 		w_zp_node->Set<NNFusion_DeviceType>("DeviceType", move(dt));
 		w_zp_node->Set<int>("DeviceID",move( ori_device_id));
 
                 auto zp_acc = std::make_shared<op::Constant>(
-                    from<float>(), nnfusion::Shape(out_shape), static_cast<void*>(tmp_out));
+                    from<float>(), nnfusion::Shape(out_shape), static_cast<void*>(zp_acc_data));
                 auto zp_acc_node = std::make_shared<GNode>(zp_acc, GNodeVector({}));
                 zp_acc->revalidate_and_infer_types(zp_acc_node->shared_from_this());
 		zp_acc_node->Set<NNFusion_DeviceType>("DeviceType", move(dt));
@@ -255,7 +256,7 @@ public:
                 auto scale_integer =
                     std::make_shared<op::Constant>(from<float>(),
                                                    nnfusion::Shape(vector<size_t>({1})),
-                                                   static_cast<void*>(tmp_scale));
+                                                   static_cast<void*>(scale_integer_data));
                 auto scale_integer_node = std::make_shared<GNode>(scale_integer, GNodeVector({}));
                 scale_integer->revalidate_and_infer_types(scale_integer_node->shared_from_this());
 		scale_integer_node->Set<NNFusion_DeviceType>("DeviceType", move(dt));
@@ -264,7 +265,7 @@ public:
                 auto scale_shift =
                     std::make_shared<op::Constant>(from<float>(),
                                                    nnfusion::Shape(vector<size_t>({1})),
-                                                   static_cast<void*>(tmp_scale));
+                                                   static_cast<void*>(scale_shift_data));
                 auto scale_shift_node = std::make_shared<GNode>(scale_shift, GNodeVector({}));
                 scale_shift->revalidate_and_infer_types(scale_shift_node->shared_from_this());
 		scale_shift_node->Set<NNFusion_DeviceType>("DeviceType", move(dt));
@@ -296,8 +297,9 @@ public:
                 // replace node will revalidate and infer the output tensor
                 m_graph->replace_node(cur_node, quan_dot_node, false);
                 m_graph->remove_node(src_node);
-
-                has_constant = true;
+		(*quan_dot_node)["Kernel_Selection_Result"] = matched_kernel;
+		std::cout<<"Bind the Quantized kernel!"<<std::endl;
+		has_constant = true;
                 break;
             }
         }
