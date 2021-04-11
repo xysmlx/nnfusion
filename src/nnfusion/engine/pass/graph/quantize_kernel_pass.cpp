@@ -186,10 +186,9 @@ public:
         }
         return true;
     }
-    void DotQuantizeOptimize8bit(
-        std::shared_ptr<GNode> cur_node,
-	NNFusion_DeviceType dt,
-        nnfusion::cache::KernelEntry_p kernel_entry)
+    void DotQuantizeOptimize8bit(std::shared_ptr<GNode> cur_node,
+                                 NNFusion_DeviceType dt,
+                                 nnfusion::cache::KernelEntry_p kernel_entry)
     {
         std::cout << "In DotQuantizeOptimize 8bit" << std::endl;
         bool has_constant = false;
@@ -312,18 +311,16 @@ public:
                 m_graph->replace_node(cur_node, quan_dot_node, false);
                 m_graph->remove_node(src_node);
                 // Bind the fetched kernel here with the new kernel context
-		std::shared_ptr<KernelContext> ctx(new KernelContext(quan_dot_node));
-		auto kernel = std::make_shared<kernels::cuda::CacheCudaEmitter>(ctx, kernel_entry);
+                std::shared_ptr<KernelContext> ctx(new KernelContext(quan_dot_node));
+                auto kernel = std::make_shared<kernels::cuda::CacheCudaEmitter>(ctx, kernel_entry);
                 KernelEmitter::Pointer pkernel = kernel;
 
-		// need to emit the source before bind the kernel
+                // need to emit the source before bind the kernel
                 kernel->get_or_emit_source();
                 (*quan_dot_node)["Kernel_Selection_Result"] = std::make_pair(dt, pkernel);
                 std::cout << "###############################" << std::endl;
-                std::cout << kernel->get_or_emit_source()->body_unit->get_code()
-                          << std::endl;
-                std::cout << kernel->get_or_emit_source()->signature_unit->get_code()
-                          << std::endl;
+                std::cout << kernel->get_or_emit_source()->body_unit->get_code() << std::endl;
+                std::cout << kernel->get_or_emit_source()->signature_unit->get_code() << std::endl;
                 //exit(-1);
                 std::cout << "Bind the Quantized kernel!" << std::endl;
                 has_constant = true;
