@@ -298,6 +298,10 @@ public:
                 m_graph->replace_node(cur_node, quan_dot_node, false);
                 m_graph->remove_node(src_node);
 		(*quan_dot_node)["Kernel_Selection_Result"] = matched_kernel;
+		std::cout<<"###############################"<<std::endl;
+		std::cout<<matched_kernel.second->get_or_emit_source()->body_unit->get_code()<<std::endl;	
+		std::cout<<matched_kernel.second->get_or_emit_source()->signature_unit->get_code()<<std::endl;
+		//exit(-1);	
 		std::cout<<"Bind the Quantized kernel!"<<std::endl;
 		has_constant = true;
                 break;
