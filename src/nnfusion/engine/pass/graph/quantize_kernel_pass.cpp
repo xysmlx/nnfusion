@@ -173,7 +173,7 @@ public:
                 // update the model graph
                 if (quantize_bit == 8)
                 {
-                    DotQuantizeOptimize8bit(node, kernel_entry);
+                    DotQuantizeOptimize8bit(node, n_device_type, kernel_entry);
                 }
                 else
                 {
@@ -188,11 +188,12 @@ public:
     }
     void DotQuantizeOptimize8bit(
         std::shared_ptr<GNode> cur_node,
+	NNFusion_DeviceType dt,
         nnfusion::cache::KernelEntry_p kernel_entry)
     {
         std::cout << "In DotQuantizeOptimize 8bit" << std::endl;
         bool has_constant = false;
-        NNFusion_DeviceType dt = nnfusion::get_device_type("CUDA_GPU");
+        // NNFusion_DeviceType dt = nnfusion::get_device_type("CUDA_GPU");
         for (auto in_edge : cur_node->get_in_edges())
         {
             auto src_node = in_edge->get_src();
@@ -311,11 +312,13 @@ public:
                 m_graph->replace_node(cur_node, quan_dot_node, false);
                 m_graph->remove_node(src_node);
                 // Bind the fetched kernel here with the new kernel context
-                auto ctx = new KernelContext(quan_dot_node);
-                auto kernel = std::make_shared<kernels::cuda::CacheCudaEmitter>(ctx, kernel_entry);
-                // need to emit the source before bind the kernel
+		std::shared_ptr<KernelContext> ctx(new KernelContext(quan_dot_node));
+		auto kernel = std::make_shared<kernels::cuda::CacheCudaEmitter>(ctx, kernel_entry);
+                KernelEmitter::Pointer pkernel = kernel;
+
+		// need to emit the source before bind the kernel
                 kernel->get_or_emit_source();
-                (*quan_dot_node)["Kernel_Selection_Result"] = std::make_pair(dt, kernel);
+                (*quan_dot_node)["Kernel_Selection_Result"] = std::make_pair(dt, pkernel);
                 std::cout << "###############################" << std::endl;
                 std::cout << kernel->get_or_emit_source()->body_unit->get_code()
                           << std::endl;
