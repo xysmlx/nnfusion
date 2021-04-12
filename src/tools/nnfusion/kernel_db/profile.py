@@ -54,7 +54,7 @@ clean:
 #include <stdio.h>
 #include <stdlib.h>
 #include <sstream>
-
+#define FETCH_UINT32(pointer) (reinterpret_cast<unsigned int*>(&(pointer))[0])
 #define CUDA_SAFE_CALL(x)                                              \
   do {                                                                 \
     cudaError_t result = (x);                                          \
