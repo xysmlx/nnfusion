@@ -119,8 +119,8 @@ def gen_key(data, dtype="float"):
     elif op_type == "QuantizeDot":
         key += "quantize" + str(data["in_quantize_bit"]) + 'bit_' + str(data["out_quantize_bit"]) + "bit"
         import pdb; pdb.set_trace()
-        if "identifier_suffix" in parameters:
-            key += parameters["identifier_suffix"]
+        if "identifier_suffix" in data:
+            key += data["identifier_suffix"]
     else:
         pass
     print("Identifier:", key)
@@ -159,13 +159,19 @@ def gen_config(op_type, kernel, shared_memory, num_sync):
         config[
             "function_signature"] = "extern \"C\" __global__  void (float* __restrict__ input0,  float* __restrict__ input1,  float* __restrict__ output0)"
     elif (op_type == "QuantizeDot"):
-        config["in_shape"] = [kernel["parameters"]
-                              ["arg0_shape"], kernel["parameters"]["arg1_shape"], kernel["parameters"]["arg2_shape"], kernel["parameters"]["arg3_shape"], kernel["parameters"]["arg4_shape"], kernel["parameters"]["arg5_shape"], kernel["parameters"]["arg6_shape"]]
+        config["in_shape"] = []
+        for i in range(100):
+            input_key = "arg%d_shape" % i 
+            if input_key in kernel["parameters"]:
+                config["in_shape"].appned(kernel["parameters"][input_key])
         config["out_shape"] = [kernel["parameters"]["out_shape"]]
         config["in_quantize_bit"] = kernel["parameters"]["in_quantize_bit"]
         config["out_quantize_bit"] = kernel["parameters"]["out_quantize_bit"]
+        if "identifier_suffix" in kernel["parameters"]:
+            config["identifier_suffix"] = kernel["parameters"]["identifier_suffix"]
+        in_paranames = ','.join(['float* __restrict__ input%d'%i for i in range(len(config["in_shape"]))])
         config[
-            "function_signature"] = "extern \"C\" __global__  void (float* __restrict__ input0,  float* __restrict__ input1, float* __restrict__ input2,  float* __restrict__ input3, float* __restrict__ input4, float* __restrict__ input5, float* __restrict__ input6, float* __restrict__ output0)"
+            "function_signature"] = "extern \"C\" __global__  void (%s, float* __restrict__ output0)" % in_paranames
     elif (op_type == "Relu"):
         config["in_shape"] = [kernel["parameters"]["input_shape"]]
         config["out_shape"] = [kernel["parameters"]["output_shape"]]
