@@ -82,6 +82,7 @@ def gen_key(data, dtype="float"):
     # still use the first two input shape to construct the identifier for thw quantize node
     if 'QuantizeDot' in op_type:
         in_shape = data['in_shape'][:2]
+        op_type = "QuantizeDot"
     out_shape = data["out_shape"]
     parameters = data["parameters"] if "parameters" in data else {}
 

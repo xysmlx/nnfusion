@@ -106,6 +106,7 @@ public:
         {
             identifier = "Quantize" + identifier + "quantize" + to_string(quantize_bit) + "bit_" +
                          to_string(succ_bit) + "bit";
+
             for(auto tmp_node: fused_op){
                 identifier += tmp_node->get_op_type();
             }
