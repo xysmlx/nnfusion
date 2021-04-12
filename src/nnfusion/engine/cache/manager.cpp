@@ -84,6 +84,11 @@ CREATE TABLE IF NOT EXISTS KernelCache(
         }
         SupportOpList.insert({"Dot",
 			      "QuantizeDot",
+			      "QuantizeConv",
+			      "QuantizeDotAdd",
+			      "QuantizeConvAdd",
+			      "QuantizeDotAddRelu",
+			      "QuantizeConvAddRelu",
                               "Convolution",
                               "AvgPool",
                               "MaxPool",

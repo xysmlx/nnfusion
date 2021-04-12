@@ -115,8 +115,7 @@ public:
             auto fetched = cache_manager->fetch_all(identifier, get_device_str(devtype));
             nnfusion::cache::KernelEntry_p kernel_entry = nullptr;
             double kernel_time = 1000000000;
-            std::cout << "Fetch" << fetched.size() << " Kernels from Kernel Cache!!!!!"
-                      << std::endl;
+            std::cout << "Fetch" << fetched.size() << " Kernels from Kernel Cache!!!!!"<< std::endl;
             for (auto fetch_entry : fetched)
             {
                 std::cout << "Find Matched quantize kernel" << std::endl;
@@ -128,7 +127,9 @@ public:
                     // kernel_time = fetch_entry->miscs["time"];
                 }
             }
-            NNFUSION_CHECK(kernel_entry->tags.find("CudaEmitter") != kernel_entry->tags.end());
+	    std::cout<<"Debug point 1"<<std::endl;
+	    if(kernel_entry)
+            	NNFUSION_CHECK(kernel_entry->tags.find("CudaEmitter") != kernel_entry->tags.end());
             return kernel_entry;
             // if (kernel_entry != nullptr)
             // {
