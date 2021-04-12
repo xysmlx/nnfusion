@@ -118,6 +118,9 @@ def gen_key(data, dtype="float"):
                                     for i in parameters["padding_below"]) + "}"
     elif op_type == "QuantizeDot":
         key += "quantize" + str(data["in_quantize_bit"]) + 'bit_' + str(data["out_quantize_bit"]) + "bit"
+        import pdb; pdb.set_trace()
+        if "identifier_suffix" in parameters:
+            key += parameters["identifier_suffix"]
     else:
         pass
     print("Identifier:", key)
