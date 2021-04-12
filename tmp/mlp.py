@@ -13,15 +13,16 @@ import time
 import numpy as np
 import copy
 
+has_bias = True
 class MLP(nn.Module):
     def __init__(self):
         super(MLP, self).__init__()
-        self.fc1 = nn.Linear(256, 256, bias=False)
+        self.fc1 = nn.Linear(256, 256, bias=has_bias)
         # linear layer (n_hidden -> hidden_2)
-        self.fc2 = nn.Linear(256, 256, bias=False)
+        self.fc2 = nn.Linear(256, 256, bias=has_bias)
         # linear layer (n_hidden -> 10)
-        self.fc3 = nn.Linear(256, 256, bias=False)
-        self.fc4 = nn.Linear(256, 10, bias=False)
+        self.fc3 = nn.Linear(256, 256, bias=has_bias)
+        self.fc4 = nn.Linear(256, 10, bias=has_bias)
 
 
     def forward(self, x):
