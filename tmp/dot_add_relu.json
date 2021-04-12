@@ -29,6 +29,12 @@
             "arg6_shape": [
                 1
             ],
+            "arg7_shape": [
+                256
+            ],
+            "arg8_shape": [
+                1
+            ],
             "out_shape": [
                 256,
                 256
