@@ -45,6 +45,10 @@ param_list = {
         'symbol': ['input0', 'input1', 'input2', 'input3', 'input4', 'input5', 'output0'],
         'dtype': ['float*', 'float*', 'float*', 'float*', 'float*', 'float*', "float*"]
     },
+    "QuantizeDotAddRelu": {
+        'symbol': ['input0', 'input1', 'input2', 'input3', 'input4', 'input5', 'input6', 'input7', 'output0'],
+        'dtype': ['float*', 'float*', 'float*', 'float*', 'float*', 'float*', "float*", 'float*', "float*"]
+    },
     "Fused_Convolution_Relu": {
         'symbol': ['input0', 'input1', 'output0'],
         'dtype': ['float*', 'float*', 'float*']
@@ -158,12 +162,12 @@ def gen_config(op_type, kernel, shared_memory, num_sync):
         config["out_shape"] = [kernel["parameters"]["out_shape"]]
         config[
             "function_signature"] = "extern \"C\" __global__  void (float* __restrict__ input0,  float* __restrict__ input1,  float* __restrict__ output0)"
-    elif (op_type == "QuantizeDot"):
+    elif ("QuantizeDot" in op_type):
         config["in_shape"] = []
         for i in range(100):
             input_key = "arg%d_shape" % i 
             if input_key in kernel["parameters"]:
-                config["in_shape"].appned(kernel["parameters"][input_key])
+                config["in_shape"].append(kernel["parameters"][input_key])
         config["out_shape"] = [kernel["parameters"]["out_shape"]]
         config["in_quantize_bit"] = kernel["parameters"]["in_quantize_bit"]
         config["out_quantize_bit"] = kernel["parameters"]["out_quantize_bit"]
