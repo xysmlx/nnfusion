@@ -80,7 +80,7 @@ def gen_key(data, dtype="float"):
     op_type = data["op_type"]
     in_shape = data["in_shape"]
     # still use the first two input shape to construct the identifier for thw quantize node
-    if op_type == 'QuantizeDot':
+    if 'QuantizeDot' in op_type:
         in_shape = data['in_shape'][:2]
     out_shape = data["out_shape"]
     parameters = data["parameters"] if "parameters" in data else {}
@@ -120,7 +120,7 @@ def gen_key(data, dtype="float"):
                                       for i in parameters["window_stride"]) + "}"
         key += "Shape{" + ", ".join(str(i)
                                     for i in parameters["padding_below"]) + "}"
-    elif op_type == "QuantizeDot":
+    elif "QuantizeDot" in op_type:
         key += "quantize" + str(data["in_quantize_bit"]) + 'bit_' + str(data["out_quantize_bit"]) + "bit"
         import pdb; pdb.set_trace()
         if "identifier_suffix" in data:
@@ -296,7 +296,7 @@ if __name__ == '__main__':
 
         default_tags = ""
         default_tags += "KernelEmitter,CudaEmitter"
-        if (op_type == "Dot" or op_type == "QuantizeDot"):
+        if (op_type == "Dot" or  "QuantizeDot" in op_type):
             # Todo: move the transpose information into identifier
             default_tags += kernel["parameters"]["transpose_A"] * \
                 ",transA" + kernel["parameters"]["transpose_B"]*",transB"
