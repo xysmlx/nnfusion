@@ -63,6 +63,27 @@ public:
         }
         return successors;
     }
+    vector<std::shared_ptr<GNode>> find_predecessors(std::shared_ptr<GNode> gnode)
+    {
+        vector<std::shared_ptr<GNode>> predecessors;
+        const std::set<std::shared_ptr<nnfusion::graph::Edge>>& in_edges = gnode->get_in_edges();
+        for (auto edge : in_edges)
+        {
+            predecessors.push_back(edge->get_src());
+        }
+        return predecessors;
+    }
+    vector<std::shared_ptr<GNode>> find_all_predecessors(std::shared_ptr<GNode> gnode)
+    {
+    	vector<std::shared_ptr<GNode>> result;
+	auto predecessors = find_predecessors(gnode);
+	result.insert(result.end(), predecessors.begin(), predecessors.end());
+        for(auto father:predecessors){
+	    auto grandfathers = find_all_predecessors(father);
+	    result.insert(result.end(), grandfathers.begin(), grandfathers.end());
+	}
+	return result;
+    }
 
     nnfusion::cache::KernelEntry_p
         fetch_quantize_kernel(shared_ptr<cache::KernelCacheManager> cache_manager,
@@ -235,8 +256,9 @@ public:
         bool has_constant = false;
         bool has_bias = false;
         bool has_relu = false;
+	vector<std::shared_ptr<GNode>> need_remove;
         std::shared_ptr<GNode> add_node = nullptr;
-        std::shared_ptr<GNode> ori_bias_weight = nullptr;
+	std::shared_ptr<GNode> bias_broadcast = nullptr;
         std::shared_ptr<GNode> relu_node = nullptr;
         for(auto node:fused_ops){
             if(node->get_op_type()=="Add"){
@@ -245,13 +267,27 @@ public:
                     auto src_node = in_edge->get_src();
                     if(src_node->is_constant()){
                         has_bias = true;
-                        ori_bias_weight = src_node;
-                    } 
+                        auto ori_bias_weight = src_node;
+			auto bias_related = find_all_predecessors(src_node);
+			need_remove.push_back(add_node);
+			need_remove.push_back(ori_bias_weight);
+			need_remove.insert(need_remove.end(), bias_related.begin(), bias_related.end());
+                    }else if(src_node->get_op_type()=="Broadcast"){
+		    	has_bias = true;
+			bias_broadcast = src_node;
+			auto bias_related = find_all_predecessors(bias_broadcast);
+			//ori_bias_weight = bias_broadcast->get_in_edge(0)->get_src();
+			need_remove.push_back(add_node);
+			need_remove.push_back(bias_broadcast);
+			need_remove.insert(need_remove.end(), bias_related.begin(), bias_related.end());
+		    }
                 }
             }
             if(node->get_op_type()=="Relu"){
                 has_relu = true;
+		assert(has_bias==true);
                 relu_node = node;
+		need_remove.push_back(relu_node);
             }
         }
         // NNFusion_DeviceType dt = nnfusion::get_device_type("CUDA_GPU");
@@ -358,7 +394,7 @@ public:
                 m_graph->add_node(scale_shift_node);
                 // Handle the fuse option here
                 if(has_bias){
-                    auto bias_shape = std::dynamic_pointer_cast<nnfusion::op::Constant>(ori_bias_weight->get_op_ptr())->get_shape();
+                    auto bias_shape = nnfusion::Shape(vector<size_t>({weight_count})); // TODO currently the memory space for bias is wasted
                     auto bias = std::make_shared<op::Constant>(from<float>(),
                                                         bias_shape, static_cast<void*>(bias_data));
                     auto bias_node = std::make_shared<GNode>(bias, GNodeVector({}));
@@ -406,14 +442,25 @@ public:
 
                 m_graph->replace_node(last_node, quan_dot_node, false);
                 m_graph->remove_node(src_node);
-                if(cur_node!=last_node) m_graph->remove_node(cur_node);
-                if(has_bias){
-                    m_graph->remove_node(ori_bias_weight);
-                    if(last_node!=add_node) m_graph->remove_node(add_node);
-                }
-                if(has_relu){
-                    if(last_node!=relu_node) m_graph->remove_node(relu_node);
-                }
+		need_remove.push_back(cur_node);
+		for(auto tmp_node:need_remove){
+		    std::cout<< " Removing "<< tmp_node->get_name()<<" "<<tmp_node->get_op_type()<<std::endl;
+		}
+		for(auto tmp_node:need_remove){
+		    if(tmp_node!=last_node){
+		        m_graph->remove_node(tmp_node);
+		    }
+		}
+               // if(cur_node!=last_node) m_graph->remove_node(cur_node);
+               // if(has_bias){
+               //     m_graph->remove_node(ori_bias_weight);
+	       //     if(bias_broadcast)
+	       // 	    m_graph->remove_node(bias_broadcast);
+               //     if(last_node!=add_node) m_graph->remove_node(add_node);
+               // }
+               // if(has_relu){
+               //     if(last_node!=relu_node) m_graph->remove_node(relu_node);
+               // }
 
                 // Bind the fetched kernel here with the new kernel context
                 std::shared_ptr<KernelContext> ctx(new KernelContext(quan_dot_node));
