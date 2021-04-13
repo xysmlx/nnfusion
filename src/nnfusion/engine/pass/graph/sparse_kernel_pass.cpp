@@ -2,10 +2,12 @@
 // Licensed under the MIT License.
 
 #include "sparse_kernel_pass.hpp"
+#include "util.hpp"
 #include <queue>
 #include "kernel_selection.hpp"
 #include "nnfusion/core/graph/gnode.hpp"
 #include "nnfusion/core/graph/graph.hpp"
+#include "nnfusion/core/kernels/cuda_gpu/cuda_emitter.hpp"
 #include "nnfusion/core/kernels/kernel_registration.hpp"
 #include "nnfusion/core/operators/op_define/broadcast.hpp"
 #include "nnfusion/core/operators/op_define/noop.hpp"
@@ -15,6 +17,7 @@
 #include "gflags/gflags.h"
 
 DEFINE_bool(fsparse_kernel, false, "Sparse Kernel.");
+DEFINE_string(fsparse_cfg, "", "Sparse cfg for the target model");
 
 using namespace nnfusion::graph;
 using namespace nnfusion::pass::graph;
@@ -24,30 +27,124 @@ using namespace nnfusion::element;
 class SparseKernelOptimizer
 {
 public:
-    SparseKernelOptimizer(std::shared_ptr<Graph> g, float threshold)
+    SparseKernelOptimizer(std::shared_ptr<Graph> g, string sparse_cfg, float threshold)
         : m_graph(g)
+        , cfg_path(sparse_cfg)
         , sparse_threshold(threshold)
     {
+        load_sparse_cfg();
+        cache_manager = std::make_shared<nnfusion::cache::KernelCacheManager>();
     }
+    void load_sparse_cfg()
+    {
+        // Load the quantize config
+        // pytorch name, onnx name, quantize bit
+        ifstream cfg_file(cfg_path.c_str());
+        assert(cfg_file.good());
+        string line;
+        while (std::getline(cfg_file, line))
+        {
+            std::istringstream iss(line);
+            string name;
+            string identifier;
+            iss >> name >> identifier;
+            sparse_cfg[name] = identifier;
+        }
+    }
+    nnfusion::cache::KernelEntry_p
+        fetch_sparse_kernel(shared_ptr<cache::KernelCacheManager> cache_manager,
+                              shared_ptr<GNode> node,
+                              NNFusion_DeviceType devtype,
+                              std::string identifier,
+                              vector<std::shared_ptr<GNode>> fused_op)
+    {
+        const std::vector<std::string> SUPPORT_PLATFORM = {"CUDA_GPU"};
+        if (identifier != "" && cache_manager &&
+            find(SUPPORT_PLATFORM.begin(), SUPPORT_PLATFORM.end(), get_device_str(devtype)) !=
+                SUPPORT_PLATFORM.end())
+        {
+
+            std::cout << "New Identifier:" << identifier << std::endl;
+            std::cout << "Device String: " << get_device_str(devtype) << std::endl;
+            auto fetched = cache_manager->fetch_all(identifier, get_device_str(devtype));
+            nnfusion::cache::KernelEntry_p kernel_entry = nullptr;
+            std::cout << "Fetch" << fetched.size() << " Kernels from Kernel Cache!!!!!"
+                      << std::endl;
+            for (auto fetch_entry : fetched)
+            {
+                std::cout << "Find Matched quantize kernel" << std::endl;
+                if (kernel_entry == nullptr)
+                //fetch_entry->miscs["time"] < kernel_time)
+                {
+                    kernel_entry = fetch_entry;
+                    break;
+                    // kernel_time = fetch_entry->miscs["time"];
+                }
+            }
+            if (kernel_entry)
+                NNFUSION_CHECK(kernel_entry->tags.find("CudaEmitter") != kernel_entry->tags.end());
+            return kernel_entry;
+        }
+        return nullptr;
+    }
+
     bool Optimize()
     {
+        if(!cache_manager->is_valid())
+        {
+            NNFUSION_LOG(INFO) << "No valid kernel cache, cannot find sparse kernel, use cusparse instead";
+            cache_manager = nullptr;
+        }
         auto gnodes = m_graph->get_ordered_ops();
         for (auto node : gnodes)
         {
-            // traverse all nodes and check whether is valuable to
-            // to use the sparse kernel
+            std::cout << "###### Node name:" << node->get_name() << " Unique name"
+            << node->get_unique_name() << "  Type:" << node->get_op_type() << std::endl;
+        }
+        for (auto node : gnodes)
+        {
+            if((*node)["Kernel_Selection_Result"].is_valid())
+                continue;
+            if(!(*node)["DeviceType"].is_valid()){
+                NNFUSION_CHECK_FAIL()
+                    << "GNode DeviceType should be assigned before this pass " << node->get_name();
+            }
+            auto n_device_type = (*node)["DeviceType"].as<NNFusion_DeviceType>();
+            NNFUSION_CHECK(n_device_type!=UNKNOWN);
+            std::cout << "Sparse Node name: " << node->get_name()
+                      << "Type: " << node->get_op_type() << std::endl;
+            if(sparse_cfg.count(node->get_name())==0)
+                continue;
+            std::string identifier = sparse_cfg[node->get_name()];
+            vector<std::shared_ptr<GNode>> fused_op;
             if (node->get_op_type() == "Dot")
             {
-                DotSparseOptimize(node);
+                fused_op = nnfusion::graph::get_dot_fuse_option(node);                
             }
             else if (node->get_op_type() == "Conv2d")
             {
                 // ???
+            }else{
+                throw "Now supported OP";
             }
+            auto kernel_entry = fetch_sparse_kernel(cache_manager, node, n_device_type, identifier, fused_op);
+            if(kernel_entry==nullptr)
+                continue;
+            // Directly bind the sparse kernel here
+            std::shared_ptr<KernelContext> ctx(new KernelContext(node));
+            auto kernel = std::make_shared<kernels::cuda::CacheCudaEmitter>(ctx, kernel_entry);
+            KernelEmitter::Pointer pkernel = kernel;
+            kernel->get_or_emit_source();
+            (*node)["Kernel_Selection_Result"] = std::make_pair(n_device_type, pkernel);
+            std::cout << "###############################" << std::endl;
+            std::cout << kernel->get_or_emit_source()->body_unit->get_code() << std::endl;
+            std::cout << kernel->get_or_emit_source()->signature_unit->get_code() << std::endl;
+            std::cout << "bind sparse kernel"<<std::endl;
+            // DotSparseOptimize(node);
         }
         return true;
     }
-
+    
 private:
     void DotSparseOptimize(std::shared_ptr<GNode> cur_node)
     {
@@ -185,15 +282,18 @@ private:
     }
 
     std::shared_ptr<Graph> m_graph;
+    std::map<std::string, std::string> sparse_cfg;
+    string cfg_path;
     float sparse_threshold;
+    std::shared_ptr<nnfusion::cache::KernelCacheManager> cache_manager;
 };
 
 bool SparseKernelPass::run_on_graph(std::shared_ptr<Graph>& graph)
 {
-    bool enable_sparse_kernel = FLAGS_fsparse_kernel;
+    bool enable_sparse_kernel = FLAGS_fsparse_kernel || FLAGS_fsparse_cfg.size() > 0;
     if (!enable_sparse_kernel)
         return true;
     NNFUSION_LOG(INFO) << "Enable the Sparse kernels";
-    SparseKernelOptimizer optimizer(graph, 1e-6);
+    SparseKernelOptimizer optimizer(graph, FLAGS_fsparse_cfg,1e-6);
     return optimizer.Optimize();
 }
