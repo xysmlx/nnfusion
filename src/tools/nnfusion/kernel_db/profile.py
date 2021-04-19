@@ -55,6 +55,7 @@ clean:
 #include <stdlib.h>
 #include <mma.h>
 #include <sstream>
+using namespace nvcuda;
 #define FETCH_UINT32(pointer) (reinterpret_cast<unsigned int*>(&(pointer))[0])
 #define CUDA_SAFE_CALL(x)                                              \
   do {                                                                 \
