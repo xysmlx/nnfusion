@@ -9,9 +9,9 @@ namespace nnfusion
 {
     namespace graph
     {
-        vector<std::shared_ptr<GNode>> find_successors(std::shared_ptr<GNode> gnode)
+	    std::vector<std::shared_ptr<GNode>> find_successors(std::shared_ptr<GNode> gnode)
         {
-            vector<std::shared_ptr<GNode>> successors;
+		std::vector<std::shared_ptr<GNode>> successors;
             const std::set<std::shared_ptr<nnfusion::graph::Edge>>& out_edges =
                 gnode->get_out_edges();
             for (auto edge : out_edges)
@@ -20,9 +20,9 @@ namespace nnfusion
             }
             return successors;
         }
-        vector<std::shared_ptr<GNode>> find_predecessors(std::shared_ptr<GNode> gnode)
+	    std::vector<std::shared_ptr<GNode>> find_predecessors(std::shared_ptr<GNode> gnode)
         {
-            vector<std::shared_ptr<GNode>> predecessors;
+		std::vector<std::shared_ptr<GNode>> predecessors;
             const std::set<std::shared_ptr<nnfusion::graph::Edge>>& in_edges =
                 gnode->get_in_edges();
             for (auto edge : in_edges)
@@ -31,9 +31,9 @@ namespace nnfusion
             }
             return predecessors;
         }
-        vector<std::shared_ptr<GNode>> find_all_predecessors(std::shared_ptr<GNode> gnode)
+	    std::vector<std::shared_ptr<GNode>> find_all_predecessors(std::shared_ptr<GNode> gnode)
         {
-            vector<std::shared_ptr<GNode>> result;
+		std::vector<std::shared_ptr<GNode>> result;
             auto predecessors = find_predecessors(gnode);
             result.insert(result.end(), predecessors.begin(), predecessors.end());
             for (auto father : predecessors)
@@ -44,13 +44,13 @@ namespace nnfusion
             return result;
         }
 
-        vector<std::shared_ptr<GNode>> get_dot_fuse_option(std::shared_ptr<GNode> dot_node)
+	    std::vector<std::shared_ptr<GNode>> get_dot_fuse_option(std::shared_ptr<GNode> dot_node)
         {
-            vector<std::shared_ptr<GNode>> fused_op;
+		std::vector<std::shared_ptr<GNode>> fused_op;
             auto succs = find_successors(dot_node);
             if (succs.size() == 0)
                 // return
-                return vector<std::shared_ptr<GNode>>();
+                return std::vector<std::shared_ptr<GNode>>();
             auto son_node = succs[0];
             if (son_node->get_op_type() == "Add")
             {
