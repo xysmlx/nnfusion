@@ -1,6 +1,6 @@
 // This kernel's input datatype and output datatype are all 8bit, using cuda core.
 
-extern "C" __global__ void MatrixMulCUDA_8bit_biasRelu(float *input0, float *input1, float *input2, float *input3, float *input4, float *input5, float * input6,float  *input7, float *input8, float *output0) 
+extern "C" __global__ void MatrixMulCUDA_8bit_bias(float *input0, float *input1, float *input2, float *input3, float *input4, float *input5, float * input6,float  *input7, float *input8, float *output0) 
 {
 
     const unsigned int M_GLOBAL=1024;
@@ -12,15 +12,15 @@ extern "C" __global__ void MatrixMulCUDA_8bit_biasRelu(float *input0, float *inp
     const unsigned int  N=16;
     const unsigned int  K=16;
     const unsigned int  WMMA_M=16;
-    const unsigned int  WMMA_M=16;
-    const unsigned int  WMMA_M=16;
+    const unsigned int  WMMA_N=16;
+    const unsigned int  WMMA_K=16;
 
     const unsigned int  M_TILES=16;
     const unsigned int  N_TILES=16;
     const unsigned int  K_TILES=16;
 
 
-    typedef C_LAYOUT wmma::mem_row_major;
+    // typedef C_LAYOUT wmma::mem_row_major;
 
     const unsigned int WARPS_PER_BLOCK=8;
     const unsigned int THREADS_PER_BLOCK= (WARP_SIZE * WARPS_PER_BLOCK);
@@ -119,7 +119,7 @@ for (int j = 0; j < WARP_ROW_TILES; j++) {
 const int *tile_ptr =
 shmem_warp_tile_ptr + i * SHMEM_STRIDE * K + j * N;
 
-wmma::load_matrix_sync(c[i][j], tile_ptr, SHMEM_STRIDE, C_LAYOUT);
+wmma::load_matrix_sync(c[i][j], tile_ptr, SHMEM_STRIDE, wmma::mem_row_major);
 }
 }
 
@@ -219,7 +219,7 @@ c[i][j].x[t] = ((c[i][j].x[t] * alpha) >> integer);
 
 int *tile_ptr = shmem_warp_tile_ptr + i * SHMEM_STRIDE * K + j * N;
 
-wmma::store_matrix_sync(tile_ptr, c[i][j], SHMEM_STRIDE, C_LAYOUT);
+wmma::store_matrix_sync(tile_ptr, c[i][j], SHMEM_STRIDE,wmma::mem_row_major);
 }
 }
 

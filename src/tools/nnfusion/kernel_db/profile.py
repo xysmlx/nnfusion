@@ -53,6 +53,7 @@ clean:
 #include <cuda_runtime.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <mma.h>
 #include <sstream>
 #define FETCH_UINT32(pointer) (reinterpret_cast<unsigned int*>(&(pointer))[0])
 #define CUDA_SAFE_CALL(x)                                              \
