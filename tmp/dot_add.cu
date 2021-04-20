@@ -51,7 +51,7 @@ extern "C" __global__ void MatrixMulCUDA_8bit_bias(float *input0, float *input1,
     const uint8_t * A = reinterpret_cast<uint8_t*>(input0); // activation
     const uint8_t * B =  reinterpret_cast<uint8_t*>(input1); // weight
     const int * C = reinterpret_cast< int *>(input7);
-    const uint8_t * D = reinterpret_cast<uint8_t*>(output0);
+    uint8_t * D = reinterpret_cast<uint8_t*>(output0);
     const int alpha = (int)(*input5);
     const int integer = (int)(*input6);
 

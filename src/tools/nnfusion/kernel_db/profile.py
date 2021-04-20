@@ -15,7 +15,7 @@ def prepare_file(signature, code, config, path, parse=False):
     profile_makefile = r'''
 # Gencode arguments
 # SMS ?= 30 35 37 50 52 60 61 70 75
-SMS ?= 70
+SMS ?= 75
 
 ifeq ($(GENCODE_FLAGS),)
 # Generate SASS code for each SM architecture listed in $(SMS)
