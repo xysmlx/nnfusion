@@ -456,4 +456,8 @@ void cuda::CacheBlockCudaEmitter::set_launch_config()
     auto func = kernel_entry.function;
     m_gridDim = dim3(func["grid_dim"][0], func["grid_dim"][1], func["grid_dim"][2]);
     m_blockDim = dim3(func["block_dim"][0], func["block_dim"][1], func["block_dim"][2]);
+    if (func.find("dynamic_shared_memory") != func.end())
+    {
+        m_dynamic_shared_memory = func["dynamic_shared_memory"];
+    }
 }
