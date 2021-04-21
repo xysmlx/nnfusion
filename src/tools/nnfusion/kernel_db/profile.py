@@ -108,7 +108,7 @@ __init_input__
   // warm up
   for (int i = 0; i < 5; i++) {
     __signature__<<<
-        blocks, threads>>>(__input__);
+        blocks, threads__sharedmem__>>>(__input__);
   }
 
   // kernel call
@@ -116,7 +116,7 @@ __init_input__
   cudaProfilerStart();
   for (int i_ = 0; i_ < steps; i_++) {
     __signature__<<<
-        blocks, threads>>>(__input__);
+        blocks, threads__sharedmem__>>>(__input__);
   }
   cudaProfilerStop();
 
@@ -152,6 +152,10 @@ __init_input__
         "__grid__", str(tuple(i for i in config["gridDim"])))
     profile_kernel = profile_kernel.replace(
         "__block__", str(tuple(i for i in config["blockDim"])))
+    if "dynamic_shared_memory" in config:
+        profile_kernel = profile_kernel.replace('__sharedmem__', str(config['dynamic_shared_memory']))
+    else:
+        profile_kernel = profile_kernel.replace('__sharedmem__', '')
 
     profile_kernel = profile_kernel.replace("__signature__", signature)
 

@@ -142,6 +142,8 @@ def gen_config(op_type, kernel, shared_memory, num_sync):
         "blockDim": kernel["blockDim"],
         "gridDim": kernel["gridDim"],
     }
+    if "dynamic_shared_memory" in kernel:
+        config["dynamic_shared_memory"] = kernel["dynamic_shared_memory"]
     if op_type in conv_family:
         config["in_shape"] = [kernel["parameters"]
                               ["input_shape"], kernel["parameters"]["filter_shape"]]
@@ -223,6 +225,8 @@ def insert_db(name, resource, platform="CUDA_GPU", tags="", profile="Tesla V100-
     function_dict.update({"function_body": data["function_body"]})
     function_dict.update({"grid_dim": data["gridDim"]})
     function_dict.update({"block_dim": data["blockDim"]})
+    if "dynamic_shared_memory" in data:
+        function_dict.update({"dynamic_shared_memory": data["dynamic_shared_memory"]})
     function_dict.update({"block_function_body": data["block_function_body"]})
     function_dict.update({"shared_memory": data["shared_memory"]})
     function_dict.update({"num_syncthreads": data["num_syncthreads"]})
