@@ -153,7 +153,7 @@ __init_input__
     profile_kernel = profile_kernel.replace(
         "__block__", str(tuple(i for i in config["blockDim"])))
     if "dynamic_shared_memory" in config:
-        profile_kernel = profile_kernel.replace('__sharedmem__', str(config['dynamic_shared_memory']))
+        profile_kernel = profile_kernel.replace('__sharedmem__', ','+str(config['dynamic_shared_memory']))
     else:
         profile_kernel = profile_kernel.replace('__sharedmem__', '')
 
