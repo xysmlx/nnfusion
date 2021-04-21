@@ -15,9 +15,9 @@ extern "C" __global__ void MatrixMulCUDA_8bit_bias(float *input0, float *input1,
     const unsigned int  WMMA_N=16;
     const unsigned int  WMMA_K=16;
 
-    const unsigned int  M_TILES=16;
-    const unsigned int  N_TILES=16;
-    const unsigned int  K_TILES=16;
+    const unsigned int  M_TILES=64;
+    const unsigned int  N_TILES=64;
+    const unsigned int  K_TILES=64;
 
 
     // typedef C_LAYOUT wmma::mem_row_major;
