@@ -27,7 +27,7 @@ LanguageUnit_p cuda::CudaEmitter::emit_function_call()
     names.insert(names.end(), m_context->input_names.begin(), m_context->input_names.end());
     names.insert(names.end(), m_context->output_names.begin(), m_context->output_names.end());
     lu << "<<<dim3(" << m_gridDim.x << ", " << m_gridDim.y << ", " << m_gridDim.z << "), dim3("
-       << m_blockDim.x << ", " << m_blockDim.y << ", " << m_blockDim.z << "), 0, " << stream_name
+       << m_blockDim.x << ", " << m_blockDim.y << ", " << m_blockDim.z << "), " << m_dynamic_shared_memory << ", " << stream_name
        << ">>>(" << join(names, ", ") << ");\n";
 
     return _lu;
@@ -393,6 +393,10 @@ void cuda::CacheCudaEmitter::set_launch_config()
     auto func = kernel_entry.function;
     m_gridDim = dim3(func["grid_dim"][0], func["grid_dim"][1], func["grid_dim"][2]);
     m_blockDim = dim3(func["block_dim"][0], func["block_dim"][1], func["block_dim"][2]);
+    if (func.find("dynamic_shared_memory") != func.end())
+    {
+        m_dynamic_shared_memory = func["dynamic_shared_memory"];
+    }
 }
 
 LanguageUnit_p cuda::CacheBlockCudaEmitter::emit_function_signature()
@@ -452,4 +456,8 @@ void cuda::CacheBlockCudaEmitter::set_launch_config()
     auto func = kernel_entry.function;
     m_gridDim = dim3(func["grid_dim"][0], func["grid_dim"][1], func["grid_dim"][2]);
     m_blockDim = dim3(func["block_dim"][0], func["block_dim"][1], func["block_dim"][2]);
+    if (func.find("dynamic_shared_memory") != func.end())
+    {
+        m_dynamic_shared_memory = func["dynamic_shared_memory"];
+    }
 }
