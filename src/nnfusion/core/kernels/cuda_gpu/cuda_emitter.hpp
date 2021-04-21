@@ -319,6 +319,7 @@ namespace nnfusion
                 LanguageUnit_p emit_function_signature() override;
                 LanguageUnit_p emit_function_body() override;
                 LanguageUnit_p emit_dependency() override;
+                LanguageUnit_p emit_comments() override;
                 void set_launch_config() override;
 
             private:
