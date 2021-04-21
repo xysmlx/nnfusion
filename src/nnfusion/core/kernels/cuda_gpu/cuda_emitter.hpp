@@ -39,7 +39,7 @@ namespace nnfusion
             {
             public:
                 CudaEmitter(shared_ptr<KernelContext> ctx)
-                    : KernelEmitter(ctx, "cuda")
+                    : KernelEmitter(ctx, "cuda"), m_dynamic_shared_memory(0)
                 {
                 }
 
@@ -69,6 +69,8 @@ namespace nnfusion
 
                 dim3 m_blockDim;
                 dim3 m_gridDim;
+
+                size_t m_dynamic_shared_memory;
             };
 
             class BlockCudaEmitter : public CudaEmitter
