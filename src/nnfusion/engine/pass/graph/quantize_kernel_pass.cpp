@@ -313,6 +313,28 @@ public:
                 need_remove.push_back(relu_node);
             }
         }
+        // insert the bit converter here
+        bool need_converter = false;
+        std::shared_ptr<GNode> activation_node;
+        std::shared_ptr<Edge> activation_edge;
+        for(auto in_edge : cur_node->get_in_edges())
+        {
+            auto src_node = in_edge->get_src();
+            if(!src_node->is_constant()){
+                // input activation
+                activation_node = src_node;
+                activation_edge = in_edge;
+                if(quantize_cfg.count(src_node->get_name())==0){
+                    // the quantize node will handle the bit convertion
+                    need_converter = true;
+                }
+            }
+        }
+        if (need_converter){
+            auto converter = std::make_shared<nnfusion::op::BitConverter>(32, 8);
+            m_graph->remove_edge(activation_edge);
+            auto converter_node = std::make_shared<GNode>(converter, GNodeVector({src_node}));
+        }
         // NNFusion_DeviceType dt = nnfusion::get_device_type("CUDA_GPU");
         for (auto in_edge : cur_node->get_in_edges())
         {
