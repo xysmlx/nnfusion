@@ -376,7 +376,7 @@ public:
               
                 auto weight_row = std::make_shared<op::Constant>(
                     from<float>(), nnfusion::Shape(w_shape), static_cast<void*>(block_weight_rows));
-                auto weight_row_node = std::make_shared<GNode>(weight_values, GNodeVector({}));
+                auto weight_row_node = std::make_shared<GNode>(weight_row, GNodeVector({}));
                 //update the output
                 weight_row_node->get_op_ptr()->revalidate_and_infer_types(
                     weight_row_node->shared_from_this());
@@ -385,7 +385,7 @@ public:
 
                 auto weight_col = std::make_shared<op::Constant>(
                     from<float>(), nnfusion::Shape(w_shape), static_cast<void*>(block_weight_cols));
-                auto weight_col_node = std::make_shared<GNode>(weight_values, GNodeVector({}));
+                auto weight_col_node = std::make_shared<GNode>(weight_col, GNodeVector({}));
                 //update the output
                 weight_col_node->get_op_ptr()->revalidate_and_infer_types(
                     weight_col_node->shared_from_this());

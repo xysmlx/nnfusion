@@ -127,7 +127,7 @@ def gen_key(data, dtype="float"):
         if "identifier_suffix" in data:
             key += data["identifier_suffix"]
         if "identifier_prefix" in data:
-            key = data['identidier_prefix'] + key
+            key = data['identifier_prefix'] + key
     else:
         pass
     print("Identifier:", key)
@@ -178,6 +178,9 @@ def gen_config(op_type, kernel, shared_memory, num_sync):
         config["out_quantize_bit"] = kernel["parameters"]["out_quantize_bit"]
         if "identifier_suffix" in kernel["parameters"]:
             config["identifier_suffix"] = kernel["parameters"]["identifier_suffix"]
+        if 'identifier_prefix' in kernel['parameters']:
+            config['identifier_prefix'] = kernel['parameters']['identifier_prefix']
+
         in_paranames = ','.join(['float* __restrict__ input%d'%i for i in range(len(config["in_shape"]))])
         config[
             "function_signature"] = "extern \"C\" __global__  void (%s, float* __restrict__ output0)" % in_paranames
