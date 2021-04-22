@@ -30,6 +30,7 @@ set(SRC
     superscaler_dataparallelism_pass.cpp
     sparse_kernel_pass.cpp
     quantize_kernel_pass.cpp
+    block_quantize_pass.cpp
 )
 
 add_library(nnfusion_engine_pass_graph STATIC ${SRC})
