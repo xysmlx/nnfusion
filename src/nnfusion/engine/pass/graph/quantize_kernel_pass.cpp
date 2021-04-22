@@ -50,6 +50,7 @@ public:
             int n_bit;
             iss >> name >> n_bit;
             quantize_cfg[name] = n_bit;
+            std::cout<<"Quantized Layer"<<name<<std::endl;
         }
     }
 

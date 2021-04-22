@@ -39,3 +39,6 @@ class MLP(nn.Module):
         #x = F.relu(self.fc3(x))
         #x = F.log_softmax(self.fc4(x), 1)
         return x
+model = MLP()
+dummy_input = torch.rand(1024, 1, 32, 32)
+torch.onnx.export(model, dummy_input, 'mlp_norelu.onnx', verbose=True)
