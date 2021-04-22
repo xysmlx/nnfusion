@@ -131,7 +131,7 @@ public:
             find(SUPPORT_PLATFORM.begin(), SUPPORT_PLATFORM.end(), get_device_str(devtype)) !=
                 SUPPORT_PLATFORM.end())
         {
-            identifier = "Quantize" + identifier + "quantize" + to_string(quantize_bit) + "bit_" +
+            identifier = "BlockQuantize" + identifier + "quantize" + to_string(quantize_bit) + "bit_" +
                          to_string(succ_bit) + "bit";
 
             for (auto tmp_node : fused_op)

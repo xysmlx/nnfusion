@@ -126,6 +126,8 @@ def gen_key(data, dtype="float"):
         import pdb; pdb.set_trace()
         if "identifier_suffix" in data:
             key += data["identifier_suffix"]
+        if "identifier_prefix" in data:
+            key = data['identidier_prefix'] + key
     else:
         pass
     print("Identifier:", key)
