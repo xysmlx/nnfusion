@@ -312,7 +312,8 @@ if __name__ == '__main__':
             prod(config["blockDim"])/32)*32 * prod(config["gridDim"])
 
         prepare_file(signature, kernel["code"], config, db_path + "profile/")
-        profile_info = profile(signature, db_path + "profile/")
+        # profile_info = profile(signature, db_path + "profile/")
+        profile_info = "Skip the profile"
         print(profile_info, resource, config["num_syncthreads"])
         insert_db(operator_path + name, resource,
                   tags=default_tags, profile=profile_info)
