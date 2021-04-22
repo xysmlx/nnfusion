@@ -89,6 +89,7 @@ set(SRC
     op_define/fused.cpp
     op_define/sparsedot.cpp
     op_define/quantizedot.cpp
+    op_define/bitconverter.cpp
     ${generic_op_define}
 )
 

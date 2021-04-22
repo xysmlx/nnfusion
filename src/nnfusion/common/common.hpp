@@ -104,6 +104,7 @@
 #include "nnfusion/core/operators/op_define/variable.hpp"
 #include "nnfusion/core/operators/op_define/sparsedot.hpp"
 #include "nnfusion/core/operators/op_define/quantizedot.hpp"
+#include "nnfusion/core/operators/op_define/bitconverter.hpp"
 
 #define ktrace()                                                                                   \
     {                                                                                              \
