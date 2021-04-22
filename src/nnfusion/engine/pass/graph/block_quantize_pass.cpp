@@ -265,8 +265,10 @@ public:
         }
         return true;
     }
-    void load_from_file(void* ptr, string filepath){
-
+    void load_from_file(char* ptr, size_t buff_size, string filepath)
+    {
+        std::ifstream fin(filepath, ios::in|ios::binary);
+        fin.read(ptr, buff_size);
     }
     void DotQuantizeOptimize8bit(std::shared_ptr<GNode> cur_node,
                                  NNFusion_DeviceType dt,
@@ -351,9 +353,9 @@ public:
                 float* block_weight_rows = (float*)malloc(sizeof(float) * weight_count);
                 float* block_weight_cols = (float*)malloc(sizeof(float) * weight_count);
                 float* block_weight_values = (float*) malloc(sizeof(float)*weight_count);
-                load_from_file(block_weight_rows, csr_row[cur_node->get_name()]);
-                load_from_file(block_weight_cols, csr_col[cur_node->get_name()]);
-                load_from_file(block_weight_values, csr_values[cur_node->get_name()]);
+                load_from_file((char*)block_weight_rows, weight_count, csr_row[cur_node->get_name()]);
+                load_from_file((char*)block_weight_cols, weight_count, csr_col[cur_node->get_name()]);
+                load_from_file((char*)block_weight_values, weight_count, csr_values[cur_node->get_name()]);
 
                 float* scale_integer_data = (float*)malloc(sizeof(float));
                 float* scale_shift_data = (float*)malloc(sizeof(float));

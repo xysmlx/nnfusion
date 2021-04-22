@@ -29,6 +29,8 @@
 #include "nnfusion/engine/pass/graph/vector_dot_transpose_pass.hpp"
 #include "nnfusion/engine/pass/graph/sparse_kernel_pass.hpp"
 #include "nnfusion/engine/pass/graph/quantize_kernel_pass.hpp"
+#include "nnfusion/engine/pass/graph/block_quantize_pass.hpp"
+
 #include "nnfusion/engine/pass/extract_graph_signature.hpp"
 #include "nnfusion/engine/pass/tensor/inplace_tensor_analysis.hpp"
 #include "nnfusion/engine/pass/tensor/liveness_analysis.hpp"
@@ -67,6 +69,7 @@ CudaEngine::CudaEngine()
     g_passes->push_back(make_shared<DefaultGNodeDeviceDispatcher>());
     g_passes->push_back(make_shared<SparseKernelPass>());
     g_passes->push_back(make_shared<QuantizeKernelPass>());
+    g_passes->push_back(make_shared<BlockQuantizeKernelPass>());
 
     // Kernel selection
     g_passes->push_back(make_shared<KernelTuning>());
