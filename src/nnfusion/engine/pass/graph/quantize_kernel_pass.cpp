@@ -380,20 +380,44 @@ public:
             }
         }
         if (need_converter){
+            int ori_device_id = (*activation_node)["DeviceID"];
+
+            float * convert_scale_integer_data = (float*)malloc(sizeof(float));
+            float * convert_scale_shift_data = (float*)malloc(sizeof(float));
+            auto convert_scale_integer =
+                std::make_shared<op::Constant>(from<float>(),
+                                                nnfusion::Shape(vector<size_t>({1})),
+                                                static_cast<void*>(convert_scale_integer_data));
+            auto convert_scale_integer_node = std::make_shared<GNode>(convert_scale_integer, GNodeVector({}));
+            convert_scale_integer->revalidate_and_infer_types(convert_scale_integer_node->shared_from_this());
+            convert_scale_integer_node->Set<NNFusion_DeviceType>("DeviceType", move(dt));
+            convert_scale_integer_node->Set<int>("DeviceID", move(ori_device_id));
+
+            auto convert_scale_shift =
+                std::make_shared<op::Constant>(from<float>(),
+                                                nnfusion::Shape(vector<size_t>({1})),
+                                                static_cast<void*>(convert_scale_shift_data));
+            auto convert_scale_shift_node = std::make_shared<GNode>(convert_scale_shift, GNodeVector({}));
+            convert_scale_shift->revalidate_and_infer_types(convert_scale_shift_node->shared_from_this());
+            convert_scale_shift_node->Set<NNFusion_DeviceType>("DeviceType", move(dt));
+            convert_scale_shift_node->Set<int>("DeviceID", move(ori_device_id));
+
             auto converter = std::make_shared<nnfusion::op::BitConverter>(32, 8);
             int src_out = activation_edge->get_src_output();
             int dst_input = activation_edge->get_dst_input();
             m_graph->remove_edge(activation_edge);
-            auto converter_node = std::make_shared<GNode>(converter, GNodeVector({activation_node}));
+            auto convert_input = GNodeVector({activation_node, convert_scale_integer_node, convert_scale_shift_node});
+            auto converter_node = std::make_shared<GNode>(converter, convert_input);
             converter_node->set_output_size(1);
             auto shape = activation_node->get_output_shape(src_out);
             converter_node->set_output_type_and_shape(0, from<float>(), shape);
             converter_node->get_op_ptr()->revalidate_and_infer_types(converter_node->shared_from_this());
             converter_node->Set<NNFusion_DeviceType>("DeviceType", move(dt));
-            int ori_device_id = (*activation_node)["DeviceID"];
             converter_node->Set<int>("DeviceID", move(ori_device_id));
             m_graph->add_node(converter_node);
             m_graph->add_edge(activation_node, src_out, converter_node, 0);
+            m_graph->add_edge(convert_scale_integer_node, 0, converter_node, 1);
+            m_graph->add_edge(convert_scale_shift_node, 0, converter_node, 2);
             m_graph->add_edge(converter_node, 0, cur_node, dst_input);
             auto convert_kernel = fetch_kernel(cache_manager, converter_node, dt);
             assert (convert_kernel!=nullptr);
@@ -407,8 +431,6 @@ public:
             std::cout << "###############################" << std::endl;
             std::cout << kernel->get_or_emit_source()->body_unit->get_code() << std::endl;
             std::cout << kernel->get_or_emit_source()->signature_unit->get_code() << std::endl;
-
-
         }
         
         // NNFusion_DeviceType dt = nnfusion::get_device_type("CUDA_GPU");
