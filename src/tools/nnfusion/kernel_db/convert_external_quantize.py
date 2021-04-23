@@ -49,9 +49,13 @@ param_list = {
         'symbol': ['input0', 'input1', 'input2', 'input3', 'input4', 'input5', 'output0'],
         'dtype': ['float*', 'float*', 'float*', 'float*', 'float*', 'float*', "float*"]
     },
-    "QuantizeDotAddRelu": {
+    "QuantizeDotAdd": {
         'symbol': ['input0', 'input1', 'input2', 'input3', 'input4', 'input5', 'input6', 'input7', 'output0'],
         'dtype': ['float*', 'float*', 'float*', 'float*', 'float*', 'float*', "float*", 'float*', "float*"]
+    },
+    "BlockQuantizeDotAdd": {
+        'symbol': ['input0', 'input1', 'input2', 'input3', 'input4', 'input5', 'input6', 'output0'],
+        'dtype': ['float*', 'float*', 'float*', 'float*', 'float*', 'float*', "float*", "float*"]
     },
     "Fused_Convolution_Relu": {
         'symbol': ['input0', 'input1', 'output0'],

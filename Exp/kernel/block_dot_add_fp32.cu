@@ -1,6 +1,6 @@
 // This kernel's input datatype and output datatype are all 8bit, using cuda core.
 
-extern "C" __global__ void BlockMatrixMulCUDA_8bit_bias(float *input0, float *input1, float *input2, float *input3, float *input4, float *input5, float * input6,float  *input7, float *output0) 
+extern "C" __global__ void BlockMatrixMulCUDA_8bit_bias(float *input0, float *input1, float *input2, float *input3, float *input4, float *input5, float * input6, float *output0) 
 {
 
     const unsigned int M_GLOBAL=1024;
@@ -52,8 +52,7 @@ extern "C" __global__ void BlockMatrixMulCUDA_8bit_bias(float *input0, float *in
     const uint8_t * B_val =  reinterpret_cast<uint8_t*>(input1); // weight
     const int * B_row = reinterpret_cast< int *>(input2);
     const int * B_col = reinterpret_cast< int *>(input3);
-    const int alpha = (int)(*input4);
-    const int integer = (int)(*input5);
+    const float scale_s1s2 = (float)(*input4);
     const int * C = reinterpret_cast< int *>(input6);
     float * D = reinterpret_cast<float*>(output0);
 
@@ -219,7 +218,7 @@ extern "C" __global__ void BlockMatrixMulCUDA_8bit_bias(float *input0, float *in
           wmma::store_matrix_sync(tile_ptr, c[i][j], SHMEM_STRIDE, wmma::mem_row_major);
         }
       }
-  
+
       __syncthreads();
   
       // Now that shared memory contains all the D tiles, stream them to global
