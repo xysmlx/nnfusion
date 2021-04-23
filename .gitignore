@@ -19,7 +19,6 @@
 build/
 
 # makeenv and test intermediate files
-tmp/
 
 venv/
 .vscode/
