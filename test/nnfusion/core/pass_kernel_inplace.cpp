@@ -8,10 +8,10 @@
 
 #include "gtest/gtest.h"
 #include "nnfusion/core/operators/generic_op/generic_op.hpp"
+#include "nnfusion/engine/device/reversed_dfs_visitor.hpp"
+#include "nnfusion/engine/engine.hpp"
 #include "nnfusion/engine/pass/graph/gnode_device_dispatcher.hpp"
-#include "nnfusion/engine/pass/graph/graph_pass.hpp"
 #include "nnfusion/engine/pass/graph/kernel_selection.hpp"
-#include "nnfusion/engine/pass/graph/manager.hpp"
 #include "nnfusion/engine/pass/graph/op_inplace_pass.hpp"
 #include "nnfusion/engine/profiler/profiler.hpp"
 
@@ -19,18 +19,25 @@ using namespace nnfusion::pass::graph;
 using namespace std;
 using namespace nnfusion::profiler;
 
+class TestEngine : public Engine
+{
+public:
+    TestEngine()
+    {
+        g_passes->push_back(make_shared<OpInplacePass>());
+        // Kernel selection
+        g_passes->push_back(make_shared<DefaultGNodeDeviceDispatcher>());
+        g_passes->push_back(make_shared<DefaultKernelSelector>());
+
+        g_visitor = make_shared<ReversedDFSVisitor>();
+    }
+};
+
 bool run(std::shared_ptr<nnfusion::graph::Graph> graph)
 {
     graph->set_default_outputs();
-    GraphPassManager pass_manager;
-
-    pass_manager.register_pass<OpInplacePass>();
-
-    // The graph after this pass will have selected kernels
-    pass_manager.register_pass<DefaultGNodeDeviceDispatcher>();
-    pass_manager.register_pass<DefaultKernelSelector>();
-    std::vector<std::shared_ptr<nnfusion::graph::Graph>> graph_vec{graph};
-    pass_manager.run_passes(graph_vec);
+    TestEngine test_engine;
+    test_engine.run_on_graph(graph);
 
     return true;
 }

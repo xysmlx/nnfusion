@@ -26,8 +26,7 @@ REGISTER_OP(ApplyGradient)
         nnfusion::Shape output_shape_0(weight_tensor);
         gnode->set_output_type_and_shape(0, gnode->get_input_element_type(0), output_shape_0);
     })
-    .translate([](std::shared_ptr<graph::GNode> gnode) -> std::string {
-
+    .translate_v2([](std::shared_ptr<graph::GNode> gnode) -> std::string {
         NNFUSION_CHECK(gnode->get_input_size() == 2)
             << "Inputs of ApplyGradient operator should be 2.";
 
@@ -47,16 +46,14 @@ REGISTER_OP(ApplyGradient)
 
         auto& cfg = op->localOpConfig.getRoot();
         float lr = cfg["learning_rate"].is_null() ? 0.001 : (float)cfg["learning_rate"];
+        auto data_layout = op::create_layout_from_dims(gnode->get_input_shape(0));
+        auto expression_template =
+            R"( @output0@@data_layout@ = @input0@@data_layout@ - @input1@@data_layout@ * @lr@; )";
 
-        uint64_t data_size = 1;
-        for (auto& dim : weight_tensor)
-        {
-            data_size *= dim;
-        }
+        auto expression_code = op::create_code_from_template(
+            expression_template,
+            {{"data_layout", vector_to_string<std::vector<std::string>>(data_layout)}, {"lr", lr}});
 
-        auto expression = op::create_code_from_template(
-            R"( - input("input0", [@data_size@]); input("input1", [@data_size@]); output([@data_size@], lambda x: args("input0")[x] - args("input1")[x] * @lr@); )",
-            {{"data_size", data_size}, {"lr", lr}});
-        expression += " ## @annotation: inplace_wg";
-        return expression;
+        AddInplace(gnode->get_op_ptr(), 0, 0, true, true);
+        return expression_code;
     });

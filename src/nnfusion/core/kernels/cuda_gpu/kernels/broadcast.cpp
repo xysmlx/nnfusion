@@ -102,13 +102,13 @@ namespace nnfusion
                         return ss.str();
                     };
 
-                    writer << "size_t nthreads = " << shape_size(result_shape) << ";";
+                    writer << "size_t nthreads = " << shape_size(result_shape) << ";\n";
 
                     writer << expand_vector_uint32("strides", strides)
                            << expand_vector_int("stride_magic", stride_magic)
                            << expand_vector_int("stride_shift", stride_shift)
                            << expand_vector_uint32("reduced_strides", reduced_strides)
-                           << "const int tid = blockDim.x*blockIdx.x + threadIdx.x;\n";
+                           << "const int tid = blockDim.x * blockIdx.x + threadIdx.x;\n";
                     writer << "if (tid < nthreads)\n";
                     writer.block_begin();
                     {
@@ -169,7 +169,7 @@ namespace nnfusion
                 nnfusion::Shape result_shape;
                 size_t rank;
                 AxisSet axes;
-                bool is_memcpy;
+                bool is_memcpy = false;
             };
 
             class RocmBroadcast : public Broadcast
@@ -194,10 +194,10 @@ namespace nnfusion
 
 using namespace nnfusion;
 using namespace nnfusion::kernels;
-REGISTER_KERNEL_EMITTER("Broadcast",                                           //op_name
-                        Device(CUDA_GPU).TypeConstraint(DT_FLOAT).Priority(2), //attrs
-                        cuda::Broadcast)                                       // constructor
+REGISTER_KERNEL_EMITTER("Broadcast",                                               //op_name
+                        Device(CUDA_GPU).TypeConstraint(element::f32).Priority(2), //attrs
+                        cuda::Broadcast)                                           // constructor
 
-REGISTER_KERNEL_EMITTER("Broadcast",                                           //op_name
-                        Device(ROCM_GPU).TypeConstraint(DT_FLOAT).Priority(2), //attrs
-                        cuda::RocmBroadcast)                                   // constructor
+REGISTER_KERNEL_EMITTER("Broadcast",                                               //op_name
+                        Device(ROCM_GPU).TypeConstraint(element::f32).Priority(2), //attrs
+                        cuda::RocmBroadcast)                                       // constructor

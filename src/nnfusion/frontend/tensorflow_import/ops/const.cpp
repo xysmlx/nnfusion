@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 #include "const.hpp"
+#include "nnfusion/common/type/data_buffer.hpp"
 #include "nnfusion/core/operators/op_define/constant.hpp"
 #include "stdint.h"
 
@@ -124,6 +125,128 @@ namespace nnfusion
                 return true;
             }
 
+            bool ValuesFromConstNode(const tensorflow::NodeDef& node,
+                                     tensorflow::TensorShapeProto* const_tensor_shape,
+                                     DataBuffer* values)
+            {
+                NNFUSION_CHECK(node.op() == "Const");
+                auto dt = node.attr().at("dtype").type();
+                // if (dt != DataTypeToEnum<T>::value)
+                // {
+                //     std::stringstream ss;
+                //     ss << "Invalid data type defined for Const. Defined: " << dt;
+                //     return false;
+                // }
+
+                // TensorProto represents the content of the tensor in either <type>_val or
+                // tensor_content.
+                const tensorflow::TensorProto& tensor = node.attr().at("value").tensor();
+                // typename checkpoint::SaveTypeTraits<T>::RepeatedField* tensor_values =
+                //     checkpoint::MutableTensorProtoData<T>(const_cast<TensorProto*>(&tensor));
+
+                const tensorflow::TensorShapeProto& shape = tensor.tensor_shape();
+                *const_tensor_shape = shape;
+
+                const auto tensor_content_size = tensor.tensor_content().size();
+                // NNFUSION_LOG(INFO) << values->get_type() << ": tensor_size = " << tensor_content_size << ", type size = " << values->get_type().size();
+                NNFUSION_CHECK(0 == tensor_content_size % values->get_type().size());
+
+                int64_t n_elements = 1;
+                for (size_t i = 0; i < shape.dim_size(); i++)
+                {
+                    if (shape.dim(i).size() < 0)
+                    {
+                        return false;
+                        // return errors::InvalidArgument(
+                        //     "Const node has empty tensor and an unknown dimension size");
+                    }
+                    n_elements *= shape.dim(i).size();
+                }
+
+                // If tensor_content_size is zero, we'll have to take the values from
+                // int_val, float_val, etc.
+                if (tensor_content_size == 0)
+                {
+#define GET_VALUES(type)                                                                           \
+    do                                                                                             \
+    {                                                                                              \
+        const void* dat = nullptr;                                                                 \
+        for (size_t i = 0; i < n_elements; ++i)                                                    \
+        {                                                                                          \
+            if (tensor.type##_val_size() == 1)                                                     \
+            {                                                                                      \
+                dat = reinterpret_cast<const void*>(&tensor.type##_val()[0]);                      \
+            }                                                                                      \
+            else                                                                                   \
+            {                                                                                      \
+                dat = reinterpret_cast<const void*>(&tensor.type##_val()[i]);                      \
+            }                                                                                      \
+            values->setElement(i, dat);                                                            \
+        }                                                                                          \
+    } while (0)
+
+                    values->resize(n_elements);
+                    auto& tensor = node.attr().at("value").tensor();
+                    size_t val_size;
+                    if (dt == tensorflow::DT_INT32)
+                    {
+                        GET_VALUES(int);
+                    }
+                    else if (dt == tensorflow::DT_INT64)
+                    {
+                        GET_VALUES(int64);
+                    }
+                    else if (dt == tensorflow::DT_BOOL)
+                    {
+                        GET_VALUES(bool);
+                    }
+                    else if (dt == tensorflow::DT_HALF)
+                    {
+                        GET_VALUES(half);
+                    }
+                    else if (dt == tensorflow::DT_FLOAT)
+                    {
+                        GET_VALUES(float);
+                    }
+                    else if (dt == tensorflow::DT_DOUBLE)
+                    {
+                        GET_VALUES(double);
+                    }
+                    else if (dt == tensorflow::DT_STRING)
+                    {
+                        values->resize(tensor.string_val()[0].length());
+                        auto it = tensor.string_val()[0].begin();
+                        for (size_t j = 0; it != tensor.string_val()[0].end(); ++j, ++it)
+                        {
+                            values->setElement(j, reinterpret_cast<const void*>(&it));
+                        }
+                    }
+                    else
+                    {
+                        return false;
+                    }
+
+#undef GET_VALUES
+                }
+                else
+                {
+                    size_t size_tensor = tensor_content_size / values->get_type().size();
+                    const char* content = tensor.tensor_content().c_str();
+                    if (size_tensor > 1 || size_tensor == n_elements)
+                    {
+                        values->load(content, size_tensor);
+                    }
+                    else
+                    {
+                        for (size_t i = 0; i < n_elements; ++i)
+                        {
+                            values->setElement(i, content);
+                        }
+                    }
+                }
+                return true;
+            }
+
             template <typename T, typename VecT = T>
             static bool MakeConstOp(const tensorflow::NodeDef& op,
                                     nnfusion::element::Type et,
@@ -153,52 +276,32 @@ namespace nnfusion
                 return true;
             }
 
-            const std::map<tensorflow::DataType,
-                           std::pair<std::function<bool(const tensorflow::NodeDef&,
-                                                        nnfusion::element::Type,
-                                                        std::shared_ptr<nnfusion::op::Op>*)>,
-                                     const nnfusion::element::Type>>&
-                TF_NGRAPH_CONST_MAP()
+            static bool MakeConstOp(const tensorflow::NodeDef& op,
+                                    nnfusion::element::Type et,
+                                    std::shared_ptr<nnfusion::op::Op>* ng_node)
             {
-                static const std::map<
-                    tensorflow::DataType,
-                    std::pair<std::function<bool(const tensorflow::NodeDef&,
-                                                 nnfusion::element::Type,
-                                                 std::shared_ptr<nnfusion::op::Op>*)>,
-                              const nnfusion::element::Type>>
-                    the_map = {
-                        {tensorflow::DataType::DT_FLOAT,
-                         std::make_pair(MakeConstOp<float>, nnfusion::element::f32)},
-                        {tensorflow::DataType::DT_DOUBLE,
-                         std::make_pair(MakeConstOp<double>, nnfusion::element::f64)},
-                        {tensorflow::DataType::DT_INT8,
-                         std::make_pair(MakeConstOp<int8>, nnfusion::element::i8)},
-                        {tensorflow::DataType::DT_INT16,
-                         std::make_pair(MakeConstOp<int16>, nnfusion::element::i16)},
-                        // {tensorflow::DataType::DT_QINT8,
-                        //   std::make_pair(MakeConstOp<google::protobuf::qint8>, nnfusion::element::i8)},
-                        // {tensorflow::DataType::DT_QUINT16,
-                        //   std::make_pair(MakeConstOp<google::protobuf::quint8>, nnfusion::element::u8)},
-                        {tensorflow::DataType::DT_INT32,
-                         std::make_pair(MakeConstOp<int32>, nnfusion::element::i32)},
-                        {tensorflow::DataType::DT_INT64,
-                         std::make_pair(MakeConstOp<int64>, nnfusion::element::i64)},
-                        {tensorflow::DataType::DT_UINT8,
-                         std::make_pair(MakeConstOp<uint8>, nnfusion::element::u8)},
-                        {tensorflow::DataType::DT_UINT16,
-                         std::make_pair(MakeConstOp<uint16>, nnfusion::element::u16)},
-                        {tensorflow::DataType::DT_UINT32,
-                         std::make_pair(MakeConstOp<uint32>, nnfusion::element::u32)},
-                        {tensorflow::DataType::DT_UINT64,
-                         std::make_pair(MakeConstOp<uint64>, nnfusion::element::u64)},
-                        {tensorflow::DataType::DT_BOOL,
-                         std::make_pair(MakeConstOp<bool, char>, nnfusion::element::boolean)},
-                        {tensorflow::DataType::DT_STRING,
-                         std::make_pair(MakeConstOp<std::string, char>,
-                                        nnfusion::element::character)}};
-                // TODO: data type string unsupport now, bert model has string type const op used for assert
+                DataBuffer const_values(et);
+                tensorflow::TensorShapeProto shape_proto;
 
-                return the_map;
+                auto ret = ValuesFromConstNode(op, &shape_proto, &const_values);
+                NNFUSION_CHECK(ret);
+
+                nnfusion::Shape ng_shape;
+                ret = TFTensorShapeToNGraphShape(shape_proto, &ng_shape);
+                NNFUSION_CHECK(ret);
+                if (et == nnfusion::element::character)
+                {
+                    NNFUSION_CHECK(ng_shape.size() <= 1)
+                        << "For string type constant op, only one dimension support!";
+                    *ng_node = std::make_shared<nnfusion::op::Constant>(
+                        et, nnfusion::Shape{const_values.size()}, const_values);
+                }
+                else
+                {
+                    *ng_node = std::make_shared<nnfusion::op::Constant>(et, ng_shape, const_values);
+                }
+
+                return true;
             }
 
             NamedNodeVector TranslateConstOp(const tensorflow::NodeDef& node,
@@ -213,8 +316,10 @@ namespace nnfusion
 
                 try
                 {
-                    const auto& func_param = TF_NGRAPH_CONST_MAP().at(dtype);
-                    result = func_param.first(node, func_param.second, &ng_node);
+                    element::Type type;
+                    result = TFDataTypeToNNFusionElementType(dtype, &type);
+                    NNFUSION_CHECK(result);
+                    result = MakeConstOp(node, type, &ng_node);
                     NNFUSION_CHECK(result);
                 }
                 catch (const std::out_of_range&)

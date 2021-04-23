@@ -49,6 +49,9 @@ namespace nnfusion
 
                 dim3 get_grid_dim() { return m_gridDim; }
                 dim3 get_block_dim() { return m_blockDim; }
+                virtual shared_ptr<nnfusion::cache::KernelEntry> get_kernel_cache_entry(
+                    shared_ptr<nnfusion::cache::KernelEntry> kernel_entry = nullptr) override;
+
             protected:
                 // config the blockDim and gridDim
                 virtual void set_launch_config() = 0;
@@ -77,6 +80,9 @@ namespace nnfusion
                     , shared_memory_size(0)
                     , is_emitting_block_kernel(false)
                 {
+                    shared_memory_log.symbol.clear();
+                    shared_memory_log.dtype.clear();
+                    shared_memory_log.size.clear();
                 }
 
                 static const std::unordered_map<std::string, size_t> size_of_str_type;
@@ -137,9 +143,13 @@ namespace nnfusion
                         lu << type << "* " << symbol << " = (" << type << "*)(shared_buffer + "
                            << shared_memory_size << ");\n";
                         auto iter = size_of_str_type.find(type);
-                        NNFUSION_CHECK(iter != size_of_str_type.end()) << "Uknow data type: "
+                        NNFUSION_CHECK(iter != size_of_str_type.end()) << "Unknown data type: "
                                                                        << type;
                         shared_memory_size += size * iter->second;
+
+                        shared_memory_log.symbol.push_back(symbol);
+                        shared_memory_log.dtype.push_back(type);
+                        shared_memory_log.size.push_back(size);
                     }
                     else
                     {
@@ -147,8 +157,20 @@ namespace nnfusion
                     }
                 }
 
-            private:
+                virtual shared_ptr<nnfusion::cache::KernelEntry> get_kernel_cache_entry(
+                    shared_ptr<nnfusion::cache::KernelEntry> kernel_entry = nullptr) override;
+
+            public:
+                struct SharedMemoryLog
+                {
+                    std::vector<std::string> symbol;
+                    std::vector<std::string> dtype;
+                    std::vector<size_t> size;
+                };
+
+            protected:
                 size_t num_local_thread_sync;
+                SharedMemoryLog shared_memory_log;
                 size_t shared_memory_size;
                 bool is_emitting_block_kernel;
                 FunctionUnit_p m_block_function_unit;
@@ -176,16 +198,18 @@ namespace nnfusion
                 virtual bool require_cublas_handle() { return false; }
             };
 
-            class AntaresCudaKernelEmitter : public CudaEmitter
+            class AntaresCudaKernelEmitter : public BlockCudaEmitter
             {
             public:
                 AntaresCudaKernelEmitter(shared_ptr<KernelContext> ctx)
-                    : CudaEmitter(ctx)
+                    : BlockCudaEmitter(ctx)
                     , m_antares_ke_imp(new AntaresKEImp)
                 {
                     GENERIC_OP_LOGGING();
                     if (!FLAGS_fantares_codegen_server.empty())
                     {
+                        NNFUSION_LOG(INFO) << "Translate for " << ctx->gnode->get_op_type();
+
                         auto ir = nnfusion::op::get_translation(ctx->gnode);
 #if 0
                         std::unordered_set<std::string> wl = {
@@ -198,6 +222,51 @@ namespace nnfusion
 #endif
                         {
                             auto info = m_antares_ke_imp->autogen(ir);
+                            if (info.first == "")
+                            {
+                                NNFUSION_LOG(INFO) << "No Antares codegen for IR: " << ir;
+                                return;
+                            }
+                            { // check output_shapes of NNFusion and Antares, fallback when shapes mismatch.
+                                auto antares_output_shapes =
+                                    AntaresKEImp::get_output_shapes(info.first);
+                                bool flag_match = true;
+
+                                if (antares_output_shapes.size() == 0)
+                                {
+                                    flag_match = false;
+                                }
+
+                                if (antares_output_shapes.size() != ctx->outputs.size())
+                                {
+                                    flag_match = false;
+                                }
+                                else
+                                {
+                                    for (int i = 0; i < antares_output_shapes.size(); i++)
+                                    {
+                                        if (antares_output_shapes[i] !=
+                                            ctx->outputs[i]->get_shape())
+                                        {
+                                            NNFUSION_LOG(INFO)
+                                                << "NNFusion shape: "
+                                                << ctx->outputs[i]->get_shape()
+                                                << ", Antares shape: " << antares_output_shapes[i];
+                                            flag_match = false;
+                                            break;
+                                        }
+                                    }
+                                }
+
+                                if (!flag_match)
+                                {
+                                    NNFUSION_LOG(ERROR)
+                                        << "Infershapes of gnode " << ctx->gnode->get_name()
+                                        << " do not match in NNFusion and Antares, fallback ";
+                                    return;
+                                }
+                            }
+
                             antares_code = info.first;
                             m_is_tuned = info.second;
 
@@ -221,15 +290,123 @@ namespace nnfusion
                     }
                 }
 
+                virtual shared_ptr<nnfusion::cache::KernelEntry> get_kernel_cache_entry(
+                    shared_ptr<nnfusion::cache::KernelEntry> kernel_entry = nullptr) override;
+
                 bool is_eliminative() override;
                 LanguageUnit_p emit_function_body() override;
                 LanguageUnit_p emit_dependency() override;
                 void set_launch_config() override {}
                 AntaresKEImp::Pointer m_antares_ke_imp;
                 std::string antares_code;
-                bool is_memcpy;
+                bool is_memcpy = false;
             };
 
+            class CacheCudaEmitter : public CudaEmitter
+            {
+            public:
+                CacheCudaEmitter(shared_ptr<KernelContext> ctx,
+                                 nnfusion::cache::KernelEntry_p kernel_entry_p)
+                    : CudaEmitter(ctx)
+                {
+                    NNFUSION_CHECK_NOT_NULLPTR(kernel_entry_p);
+                    kernel_entry = *kernel_entry_p;
+
+                    NNFUSION_CHECK(!kernel_entry.function.is_null());
+                }
+
+            private:
+                LanguageUnit_p emit_function_signature() override;
+                LanguageUnit_p emit_function_body() override;
+                LanguageUnit_p emit_dependency() override;
+                void set_launch_config() override;
+
+            private:
+                nnfusion::cache::KernelEntry kernel_entry;
+            };
+
+            class CacheBlockCudaEmitter : public BlockCudaEmitter
+            {
+            public:
+                CacheBlockCudaEmitter(shared_ptr<KernelContext> ctx,
+                                      nnfusion::cache::KernelEntry_p kernel_entry_p)
+                    : BlockCudaEmitter(ctx)
+                {
+                    NNFUSION_CHECK_NOT_NULLPTR(kernel_entry_p);
+                    kernel_entry = *kernel_entry_p;
+
+                    NNFUSION_CHECK(!kernel_entry.function.is_null());
+                }
+
+            private:
+                LanguageUnit_p emit_function_signature() override;
+                LanguageUnit_p emit_function_body() override;
+                LanguageUnit_p emit_dependency() override;
+                void set_launch_config() override;
+
+            private:
+                nnfusion::cache::KernelEntry kernel_entry;
+            };
+
+            class CustomCudaKernelEmitter : public BlockCudaEmitter
+            {
+            public:
+                CustomCudaKernelEmitter(shared_ptr<KernelContext> ctx)
+                    : BlockCudaEmitter(ctx)
+                {
+                    auto op_config =
+                        nnfusion::op::lookup_op_config(m_context->gnode->get_op_type());
+                    std::vector<int32_t> config = op_config.get("launch_config");
+                    NNFUSION_CHECK(config.size() == 6);
+                    m_gridDim = dim3(config[0], config[1], config[2]);
+                    m_blockDim = dim3(config[3], config[4], config[5]);
+                    is_memcpy = op_config.get("is_memcpy");
+                }
+
+                virtual shared_ptr<nnfusion::cache::KernelEntry> get_kernel_cache_entry(
+                    shared_ptr<nnfusion::cache::KernelEntry> kernel_entry = nullptr) override
+                {
+                    if (kernel_entry == nullptr)
+                    {
+                        kernel_entry = std::make_shared<nnfusion::cache::KernelEntry>();
+                    }
+                    if (kernel_entry->source == "")
+                    {
+                        kernel_entry->source = "Custom";
+                    }
+                    return BlockCudaEmitter::get_kernel_cache_entry(kernel_entry);
+                }
+
+                bool is_eliminative() override
+                {
+                    return (is_memcpy &&
+                            m_context->inputs[0]->is_same_address(m_context->outputs[0]));
+                }
+                LanguageUnit_p emit_function_body() override
+                {
+                    std::string body_code;
+                    auto op_config =
+                        nnfusion::op::lookup_op_config(m_context->gnode->get_op_type());
+                    if (op_config.f_kernel_funcs.count("CUDA_GPU") > 0)
+                        body_code = op_config.f_kernel_funcs["CUDA_GPU"](m_context->gnode);
+                    if (body_code == "")
+                        return nullptr;
+                    LanguageUnit_p _lu(new LanguageUnit(get_function_name()));
+                    auto& lu = *_lu;
+                    lu.block_begin();
+                    lu << body_code << "\n";
+                    lu.block_end();
+                    return _lu;
+                }
+                LanguageUnit_p emit_dependency() override
+                {
+                    LanguageUnit_p _lu(new LanguageUnit(get_function_name() + "_dep"));
+                    _lu->require(header::cuda);
+                    return _lu;
+                }
+                void set_launch_config() override {}
+                bool is_memcpy = false;
+            };
         } // namespace cuda
     }     // namespace kernels
 } // namespace nnfusion

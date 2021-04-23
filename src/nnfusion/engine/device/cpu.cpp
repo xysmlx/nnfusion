@@ -8,6 +8,7 @@
 #include "nnfusion/engine/pass/graph/assign_layout_pass.hpp"
 #include "nnfusion/engine/pass/graph/autodiff_pass.hpp"
 #include "nnfusion/engine/pass/graph/batchnorm_inference_folding_pass.hpp"
+#include "nnfusion/engine/pass/graph/bertfusion_pass.hpp"
 #include "nnfusion/engine/pass/graph/blockfusion_pass.hpp"
 #include "nnfusion/engine/pass/graph/common_subexpression_elimination_pass.hpp"
 #include "nnfusion/engine/pass/graph/dot_transpose_pass.hpp"
@@ -17,6 +18,7 @@
 #include "nnfusion/engine/pass/graph/kernel_fusion_pass.hpp"
 #include "nnfusion/engine/pass/graph/kernel_profiling_pass.hpp"
 #include "nnfusion/engine/pass/graph/kernel_selection.hpp"
+#include "nnfusion/engine/pass/graph/kernel_tuning.hpp"
 #include "nnfusion/engine/pass/graph/multi_reshape_folding_pass.hpp"
 #include "nnfusion/engine/pass/graph/op_inplace_pass.hpp"
 #include "nnfusion/engine/pass/graph/pattern_substitution.hpp"
@@ -40,6 +42,7 @@ CpuEngine::CpuEngine()
     : Engine()
 {
     g_passes->push_back(make_shared<CSEPass>());
+    g_passes->push_back(make_shared<BertFusionPass>());
     g_passes->push_back(make_shared<AutodiffPass>());
     g_passes->push_back(make_shared<GradientWeightMappingPass>());
     g_passes->push_back(make_shared<RuntimeConstantFoldingPass>());
@@ -54,6 +57,7 @@ CpuEngine::CpuEngine()
 
     // Kernel selection
     g_passes->push_back(make_shared<DefaultGNodeDeviceDispatcher>());
+    g_passes->push_back(make_shared<KernelTuning>());
     g_passes->push_back(make_shared<ProfilingBasedKernelSelector>());
     g_passes->push_back(make_shared<FetchBasedSelector>());
     g_passes->push_back(make_shared<DefaultKernelSelector>());

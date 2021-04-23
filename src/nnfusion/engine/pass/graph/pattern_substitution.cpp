@@ -3,10 +3,15 @@
 
 #include "pattern_substitution.hpp"
 #include <queue>
+#include "nnfusion/common/common.hpp"
 #include "nnfusion/core/operators/generic_op/generic_op.hpp"
 #include "nnfusion/core/operators/op_define/constant.hpp"
+#include "nnfusion/core/operators/op_define/fused.hpp"
 #include "nnfusion/core/operators/op_define/noop.hpp"
+#include "nnfusion/engine/cache/manager.hpp"
 #include "nnfusion/engine/op.hpp"
+#include "nnfusion/engine/pass/graph/kernel_selection.hpp"
+#include "nnfusion/engine/profiler/profiler.hpp"
 
 using namespace nnfusion;
 using namespace nnfusion::pass::graph;
@@ -25,7 +30,7 @@ const static std::vector<std::vector<std::string>> PATTERNS = {
     // {"Convolution", "BatchNormInference", "Relu"},
     // {"Convolution", "BatchNormInference", "Add"},
     // {"Convolution", "BatchNormInference"},
-    // {"Convolution", "Add", "Reshape", "Relu"},
+    // Conv-BN-Relu is converted into Conv-Add-Relu
     {"Convolution", "Add", "Relu"},
     {"Convolution", "Relu"}};
 
@@ -35,7 +40,12 @@ REGISTER_OP(Matched_Pattern)
         // auto op = std::dynamic_pointer_cast<nnfusion::op::GenericOp>(gnode->get_op_ptr());
         // Shape out_shape = op->localOpConfig.getRoot()["out_shape"];
         // gnode->set_output_type_and_shape(0, element::f32, out_shape);
+    })
+    .translate_v2([](std::shared_ptr<graph::GNode> curr) -> std::string {
+        auto _op = static_pointer_cast<nnfusion::op::Fused>(curr->get_op_ptr());
+        return _op->get_fused_ir2() + _op->get_plan_rule();
     });
+;
 
 namespace
 {
@@ -134,15 +144,16 @@ private:
         for (auto m_tn : matched)
         {
             std::shared_ptr<KernelContext> ctx(new KernelContext(m_tn->node));
-            identifier += generate_identifier(ctx);
+            identifier += ctx->generate_identifier();
         }
         if (identifier != "")
         {
             // Todo: more tags, more platform
-            std::set<std::string> tags = {"fast"};
+            std::set<std::string> tags = {};
             auto fetched_kernel = kernel_db->fetch_with_tags(identifier, "CUDA", tags);
-            if (fetched_kernel.function != "")
+            if (fetched_kernel != nullptr)
             {
+                NNFUSION_CHECK(fetched_kernel->function != "");
                 NNFUSION_LOG(INFO) << "Substitution applied: " << identifier;
                 return Substitution(matched, identifier);
             }

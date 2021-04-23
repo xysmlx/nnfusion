@@ -5,6 +5,10 @@
 
 #include "graph.hpp"
 #include "graph_util.hpp"
+#include "nnfusion/common/serialize/attr_value.pb.h"
+#include "nnfusion/common/serialize/graph_def.pb.h"
+#include "nnfusion/common/serialize/pbtypes.pb.h"
+#include "nnfusion/common/serialize/tensor_shape.pb.h"
 #include "nnfusion/util/util.hpp"
 
 using namespace nnfusion::graph;
@@ -73,6 +77,7 @@ std::shared_ptr<GNode> Graph::add_node_and_edge(const std::shared_ptr<nnfusion::
         add_edge(input_gnodes[i], 0, gnode, i);
     }
     op->revalidate_and_infer_types(gnode->shared_from_this());
+    op->infer_shared_memory(gnode->shared_from_this());
     return gnode;
 }
 
@@ -89,6 +94,7 @@ std::shared_ptr<GNode> Graph::add_node_and_edge(const std::shared_ptr<nnfusion::
         add_edge(input_gnodes[i].gnode, input_gnodes[i].index, gnode, i);
     }
     op->revalidate_and_infer_types(gnode->shared_from_this());
+    op->infer_shared_memory(gnode->shared_from_this());
     return gnode;
 }
 
@@ -405,4 +411,133 @@ size_t Graph::get_temporary_pool_size()
 void Graph::set_temporary_pool_size(size_t size)
 {
     m_temporary_pool_size = size;
+}
+
+bool Graph::serialize_to_file(const std::string& file_path)
+{
+    nnfusion::serialize::GraphDef graphdef;
+    auto nnfusion_nodes = get_ordered_ops(true);
+    for (auto& nnfusion_node : nnfusion_nodes)
+    {
+        NNFUSION_CHECK(
+            !nnfusion_node->hasAttributes() ||
+            (nnfusion_node->attributeNames().size() == 1 && nnfusion_node->hasAttribute("Alias")))
+            << nnfusion_node->get_name() << " has " << nnfusion_node->attributeNames().size()
+            << " tags including \"Alias\" which cannot be serialized now.";
+        nnfusion::serialize::NodeDef* node = graphdef.add_node();
+        // name
+        node->set_name(nnfusion_node->get_name());
+        // op
+        node->set_op(nnfusion_node->get_op_type());
+        // input
+        for (auto nnfusion_edge : nnfusion_node->get_in_edges())
+        {
+            if (nnfusion_edge->get_src_output() == kControlSlot)
+            {
+                node->add_input("^" + nnfusion_edge->get_src()->get_name());
+            }
+            else
+            {
+                node->add_input(nnfusion_edge->get_src()->get_name() + ":" +
+                                std::to_string(nnfusion_edge->get_src_output()));
+            }
+        }
+        // TODO(gbxu): support all nnfusion ops
+        if (nnfusion_node->get_op_type() == "AllReduce")
+        {
+            // tensor_name
+            nnfusion::serialize::AttrValue tensor_name;
+            tensor_name.set_s(nnfusion_node->get_name());
+            (*node->mutable_attr())["tensor_name"] = tensor_name;
+        }
+        // data type
+        if (nnfusion_node->get_output_size() == 1)
+        {
+            nnfusion::serialize::AttrValue data_type;
+            nnfusion::serialize::PBType dt;
+            nnfusion::element::Type::nnfusion_element_type_to_pbtype(
+                nnfusion_node->get_element_type(), dt);
+            data_type.set_type(dt);
+            (*node->mutable_attr())["T"] = data_type;
+        }
+#if 0
+        // Plan_gen can't parse this now. So just skip it for now.
+        else
+        {            
+            nnfusion::serialize::AttrValue_ListValue* _data_types_list =
+                new nnfusion::serialize::AttrValue_ListValue();
+            for (auto nnfusion_output : nnfusion_node->get_outputs())
+            {
+                nnfusion::serialize::PBType dt;
+                nnfusion::element::Type::nnfusion_element_type_to_pbtype(
+                    nnfusion_output->get_element_type(), dt);
+                _data_types_list->add_type(dt);
+            }
+            nnfusion::serialize::AttrValue _data_types;
+            _data_types.set_allocated_list(_data_types_list);
+            (*node->mutable_attr())["T"] = _data_types;
+        }
+#endif
+        // _output_shapes
+        nnfusion::serialize::AttrValue_ListValue* _output_shapes_list =
+            new nnfusion::serialize::AttrValue_ListValue();
+        for (auto nnfusion_output : nnfusion_node->get_outputs())
+        {
+            auto shape = _output_shapes_list->add_shape();
+            for (auto nnfusion_dim : nnfusion_output->get_shape())
+            {
+                auto dim = shape->add_dim();
+                dim->set_size(nnfusion_dim);
+            }
+        }
+        nnfusion::serialize::AttrValue _output_shapes;
+        _output_shapes.set_allocated_list(_output_shapes_list);
+        (*node->mutable_attr())["_output_shapes"] = _output_shapes;
+    }
+    graphdef.set_version(1);
+    std::fstream fs(file_path, std::ios::out | std::ios::trunc | std::ios::binary);
+    graphdef.SerializeToOstream(&fs);
+    return true;
+}
+
+size_t Graph::get_memory_io()
+{
+    size_t total_io = 0;
+    for (auto gnode : get_ordered_ops())
+    {
+        size_t node_io = 0;
+        for (size_t i = 0; i < gnode->get_input_size(); ++i)
+        {
+            auto shape = gnode->get_input_shape(i);
+            if (shape.size() > 0)
+            {
+                size_t ins = 1;
+                for (auto d : shape)
+                {
+                    NNFUSION_CHECK(d != 0);
+                    ins *= d;
+                }
+                node_io += ins;
+            }
+        }
+
+        for (size_t i = 0; i < gnode->get_output_size(); ++i)
+        {
+            auto shape = gnode->get_output_shape(i);
+            if (shape.size() > 0)
+            {
+                size_t outs = 1;
+                for (auto d : shape)
+                {
+                    NNFUSION_CHECK(d != 0);
+                    outs *= d;
+                }
+                node_io += outs;
+            }
+        }
+
+        total_io += node_io;
+    }
+
+    return total_io;
 }

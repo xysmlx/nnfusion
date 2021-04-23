@@ -316,7 +316,7 @@ namespace nnfusion
                 uint32_t block_size_x;
                 string dtype;
                 size_t axis;
-                bool is_memcpy;
+                bool is_memcpy = false;
             };
         } // namespace cuda
     }     // namespace kernels
@@ -324,9 +324,9 @@ namespace nnfusion
 
 using namespace nnfusion;
 using namespace nnfusion::kernels;
-REGISTER_KERNEL_EMITTER("Concat",                                  //op_name
-                        Device(CUDA_GPU).TypeConstraint(DT_FLOAT), //attrs
-                        cuda::Concat)                              // constructor
+REGISTER_KERNEL_EMITTER("Concat",                                      //op_name
+                        Device(CUDA_GPU).TypeConstraint(element::f32), //attrs
+                        cuda::Concat)                                  // constructor
 
 namespace nnfusion
 {
@@ -473,12 +473,12 @@ namespace nnfusion
                 uint32_t nthreads;
                 uint32_t output_stride;
                 size_t axis;
-                bool is_memcpy;
+                bool is_memcpy = false;
             };
         } // namespace cuda
     }     // namespace kernels
 } // namespace nnfusion
 
-REGISTER_KERNEL_EMITTER("Concat",                                  //op_name
-                        Device(CUDA_GPU).TypeConstraint(DT_FLOAT), //attrs
-                        cuda::ConcatKernel)                        // constructor
+REGISTER_KERNEL_EMITTER("Concat",                                      //op_name
+                        Device(CUDA_GPU).TypeConstraint(element::f32), //attrs
+                        cuda::ConcatKernel)                            // constructor

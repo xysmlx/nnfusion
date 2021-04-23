@@ -5,6 +5,7 @@
 #include "nnfusion/common/common.hpp"
 #include "nnfusion/common/languageunit.hpp"
 
+DECLARE_bool(fhost_entry);
 namespace nnfusion
 {
     namespace codegen
@@ -25,7 +26,7 @@ namespace nnfusion
             virtual void execute(bool append = true) override;
             virtual void collect_requirement();
 
-            std::vector<LanguageUnit_p> unit_vec;
+            std::deque<LanguageUnit_p> unit_vec;
         };
 
         using LanguageUnitwithVec_p = std::shared_ptr<LanguageUnitwithVec>;

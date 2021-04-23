@@ -30,6 +30,7 @@ DECLARE_bool(fkernels_as_files);
 DECLARE_int64(fkernels_files_number);
 DECLARE_bool(frt_const_folding);
 DECLARE_bool(fextern_result_memory);
+DECLARE_bool(fcustomized_mem_imp);
 
 void CpuCodegenPass::set_global_member(std::shared_ptr<InterpreterContext> ctx,
                                        std::shared_ptr<TranslationUnit> tu)
@@ -149,7 +150,8 @@ void CpuCodegenPass::initialize(std::shared_ptr<InterpreterContext> ctx,
     {
         lu_exit_end << "}\n";
     }
-
+    //add requirements
+    projgen->lup_codegen->require(codegen_device_type());
     // add component
     // create_graph_config(ctx, tu);
     create_header_file(ctx, tu);
@@ -218,13 +220,6 @@ set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fPIC -std=gnu++11 -O3 -march=native -p
 add_executable(main_test main_test.cpp)   
 target_link_libraries(main_test ${TARGET_NAME}) 
 
-if(EXISTS "${CMAKE_BINARY_DIR}/Constant")
-else()
-add_custom_command(
-    TARGET ${TARGET_NAME}
-    POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_SOURCE_DIR}/Constant ${CMAKE_BINARY_DIR}/Constant
-)
-endif()
 )";
     return;
 }
@@ -296,28 +291,14 @@ void CpuCodegenPass::create_main_file(std::shared_ptr<InterpreterContext> ctx,
         }
         lu_main << "\n//fill input values\n";
         lu_main << fillval.get_code();
-
-        vector<string> params;
-        for (int i = 0; i < tu->arg.size(); i++)
-        {
-            auto& tv = tu->arg[i];
-            params.push_back(tv->get_name() + "_host");
-        }
-        for (int i = 0; i < tu->out.size(); i++)
-        {
-            auto& tv = tu->out[i];
-            if (FLAGS_fextern_result_memory)
-                params.push_back(tv->get_name() + "_host");
-            else
-                params.push_back("&" + tv->get_name() + "_host");
-        }
+        std::string args = get_kernel_entry_args(tu, true);
 
         lu_main << "\n//warm up\n";
         lu_main << "int warm_steps = 5;\n";
         lu_main << "for(int i_=0; i_<warm_steps; i_++)\n";
         lu_main.block_begin();
         // kernel launch
-        lu_main << "kernel_entry(" << join(params, ", ") << ");\n";
+        lu_main << "kernel_entry(" << args << ");\n";
         lu_main.block_end();
 
         lu_main << "\n//time measurement\n";
@@ -327,7 +308,7 @@ void CpuCodegenPass::create_main_file(std::shared_ptr<InterpreterContext> ctx,
         lu_main << "for(int i_=0; i_<test_steps; i_++)\n";
         lu_main.block_begin();
         // kernel launch
-        lu_main << "kernel_entry(" << join(params, ", ") << ");\n";
+        lu_main << "kernel_entry(" << args << ");\n";
         lu_main.block_end();
 
         lu_main << "\n//time measurement\n";
@@ -386,7 +367,7 @@ void CpuCodegenPass::create_header_file(std::shared_ptr<InterpreterContext> ctx,
     lu_header << declaration::typedef_int->get_code() << "\n";
     // if (device_type() == CUDA_GPU || device_type() == ROCM_GPU)
     //     lu_header << header::cuda->get_code();
-
+    lu_header << "extern \"C\" int get_device_type();\n";
     lu_header << "extern \"C\" int kernel_entry(";
     std::string params = get_kernel_entry_paras(tu);
     lu_header << params;
@@ -506,7 +487,11 @@ bool CpuCodegenPass::collect_funcs(std::shared_ptr<InterpreterContext> ctx,
             }
 
             LanguageUnit_p kernel_func_call = func_call_codegen(ins, func_call_only, function_call);
+            if (FLAGS_fcustomized_mem_imp)
+                lup_func_calls->unit_vec.push_back(get_customized_mem_imp(ins).first);
             lup_func_calls->unit_vec.push_back(kernel_func_call);
+            if (FLAGS_fcustomized_mem_imp)
+                lup_func_calls->unit_vec.push_back(get_customized_mem_imp(ins).second);
             ++cpu_func_count;
         }
 

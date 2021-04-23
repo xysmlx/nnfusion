@@ -12,6 +12,7 @@
 #include <vector>
 #include "../test_util/common.hpp"
 #include "gtest/gtest.h"
+#include "nnfusion/common/type/data_buffer.hpp"
 #include "nnfusion/core/operators/op_define/pad.hpp"
 #include "nnfusion/engine/profiler/profiler.hpp"
 
@@ -23,7 +24,8 @@ TEST(nnfusion_core_kernels, sample)
 
     // Filter out the kernels meeting the requirement;
     std::vector<shared_ptr<const KernelRegistration>> kernel_regs =
-        KernelRegistry::Global()->FindKernelRegistrations(gnode->get_op_type(), CUDA_GPU, DT_FLOAT);
+        KernelRegistry::Global()->FindKernelRegistrations(
+            gnode->get_op_type(), CUDA_GPU, element::f32);
     shared_ptr<KernelContext> ctx(new KernelContext(gnode));
 
     EXPECT_GT(kernel_regs.size(), 0);
@@ -38,12 +40,12 @@ TEST(nnfusion_core_kernels, sample)
             NNFUSION_LOG(INFO) << "Now on Kernel Emitter:\t" << kernel->get_function_name();
 
             // Data
-            auto input = nnfusion::inventory::generate_input<op::Pad, float>(0);
-            auto output = nnfusion::inventory::generate_output<op::Pad, float>(0);
-            vector<vector<float>> inputs;
-            inputs.push_back(vector<float>{/*a*/ 1, 2, 3, 4, 5, 6});
-            inputs.push_back(vector<float>{/*b*/ 2112});
-            vector<vector<float>> outputs;
+            DataBuffer output(element::f32);
+            output.loadVector(nnfusion::inventory::generate_output<op::Pad, float>(0));
+            vector<DataBuffer> inputs;
+            inputs.push_back(DataBuffer::fromList<float>({/*a*/ 1, 2, 3, 4, 5, 6}));
+            inputs.push_back(DataBuffer::fromList<float>({/*b*/ 2112}));
+            vector<DataBuffer> outputs;
             outputs.push_back(output);
             // Context
             nnfusion::profiler::ProfilingContext::Pointer pctx =
@@ -57,7 +59,7 @@ TEST(nnfusion_core_kernels, sample)
                 prof.execute();
                 NNFUSION_LOG(INFO) << "Avg Host duration:" << pctx->result.get_host_avg();
                 NNFUSION_LOG(INFO) << "Avg Device duration:" << pctx->result.get_device_avg();
-                auto res = prof.execute(inputs);
+                auto res = prof.execute(inputs, element::f32);
                 EXPECT_EQ(res.size(), outputs.size());
                 for (int i = 0; i < res.size(); i++)
                     EXPECT_TRUE(nnfusion::test::all_close_f(res[i], outputs[i]));
@@ -74,7 +76,7 @@ TEST(nnfusion_core_kernels, sample)
                 NNFUSION_LOG(INFO) << "Avg Host duration:" << pctx->result.get_host_avg();
                 NNFUSION_LOG(INFO) << "Avg Device duration:" << pctx->result.get_device_avg();
 
-                auto res = prof.execute(inputs);
+                auto res = prof.execute(inputs, element::f32);
                 EXPECT_EQ(res.size(), outputs.size());
                 for (int i = 0; i < res.size(); i++)
                     EXPECT_TRUE(nnfusion::test::all_close_f(res[i], outputs[i]));
@@ -87,7 +89,7 @@ TEST(nnfusion_core_kernels, sample)
                 NNFUSION_LOG(INFO) << "Test CPU Reference runtime of Pad operator:";
                 nnfusion::profiler::Profiler ref_prof(
                     nnfusion::profiler::ReferenceRuntime::Runtime(), pctx);
-                auto res = ref_prof.execute(inputs);
+                auto res = ref_prof.execute(inputs, element::f32);
                 EXPECT_EQ(res.size(), outputs.size());
                 for (int i = 0; i < res.size(); i++)
                     EXPECT_TRUE(nnfusion::test::all_close_f(res[i], outputs[i]));

@@ -40,7 +40,7 @@ namespace nnfusion
 
                 LanguageUnit_p emit_function_body() override
                 {
-                    if (data_format == "NCHW")
+                    if (data_format != "NHWC")
                     {
                         return nullptr;
                     }
@@ -143,6 +143,6 @@ using namespace nnfusion;
 using namespace nnfusion::kernels;
 
 REGISTER_KERNEL_EMITTER(
-    "Convolution",                                                         // op_name
-    Device(GENERIC_CPU).TypeConstraint(DT_FLOAT).Tag("eigen").Priority(4), // attrs
+    "Convolution",                                                             // op_name
+    Device(GENERIC_CPU).TypeConstraint(element::f32).Tag("eigen").Priority(4), // attrs
     cpu::ConvolutionEigen)

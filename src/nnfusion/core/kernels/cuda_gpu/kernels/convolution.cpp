@@ -12,6 +12,14 @@ cuda::ConvolutionCudnn::ConvolutionCudnn(shared_ptr<KernelContext> ctx)
 {
     auto conv = static_pointer_cast<nnfusion::op::Convolution>(ctx->gnode->get_op_ptr());
 
+    input_type = ctx->inputs[0]->get_element_type();
+    filter_type = ctx->inputs[1]->get_element_type();
+    output_type = ctx->outputs[0]->get_element_type();
+    NNFUSION_CHECK(input_type == filter_type && input_type == output_type)
+        << "Convolution input datatype (" << input_type
+        << ") should be the same with that of filter (" << filter_type << "), and that of output ("
+        << output_type << ").";
+    conv_type = input_type;
     input_shape = ctx->inputs[0]->get_shape();
     filter_shape = ctx->inputs[1]->get_shape();
     output_shape = ctx->outputs[0]->get_shape();
@@ -20,6 +28,7 @@ cuda::ConvolutionCudnn::ConvolutionCudnn(shared_ptr<KernelContext> ctx)
     data_dilation_strides = conv->get_data_dilation_strides();
     padding_below_diff = conv->get_padding_below();
     padding_above_diff = conv->get_padding_above();
+    data_format = conv->get_data_format();
     dtype = ctx->outputs[0]->get_element_type().c_type_string();
 
     std::stringstream tag;
@@ -65,6 +74,19 @@ LanguageUnit_p cuda::ConvolutionCudnn::emit_function_body()
         return nullptr;
     }
 
+    // Conv1D: convert Conv1D to Conv2D
+    if (data_format == "NCW")
+    {
+        input_shape = {input_shape[0], input_shape[1], 1, input_shape[2]};
+        filter_shape = {filter_shape[0], filter_shape[1], 1, filter_shape[2]};
+        output_shape = {output_shape[0], output_shape[1], 1, output_shape[2]};
+        window_dilation_strides = {1, window_dilation_strides[0]};
+        window_movement_strides = {1, window_movement_strides[0]};
+        data_dilation_strides = {1, data_dilation_strides[0]};
+        padding_below_diff = {0, padding_below_diff[0]};
+        padding_above_diff = {0, padding_above_diff[0]};
+    }
+
     // emit code
     LanguageUnit_p _lu(new LanguageUnit(get_function_name()));
     auto& lu = *_lu;
@@ -78,11 +100,16 @@ LanguageUnit_p cuda::ConvolutionCudnn::emit_function_body()
 
     {
         // lu << "cudnnDataType_t data_type = " << get_cudnn_datatype(dtype) << ";\n";
-        lu << cudnn_tensor_descriptor_from_shape(input_shape, "tensor_desc_0")->get_code();
-        lu << cudnn_tensor_descriptor_from_shape(output_shape, "tensor_desc_1")->get_code();
-        lu << get_cudnn_filter_descriptor(filter_shape, "filter_desc")->get_code();
-        lu << get_cudnn_convolution_descriptor(
-                  padding_below, window_movement_strides, window_dilation_strides, "conv_desc")
+        lu << cudnn_tensor_descriptor_from_shape(input_shape, "tensor_desc_0", input_type)
+                  ->get_code();
+        lu << cudnn_tensor_descriptor_from_shape(output_shape, "tensor_desc_1", output_type)
+                  ->get_code();
+        lu << get_cudnn_filter_descriptor(filter_shape, "filter_desc", filter_type)->get_code();
+        lu << get_cudnn_convolution_descriptor(padding_below,
+                                               window_movement_strides,
+                                               window_dilation_strides,
+                                               "conv_desc",
+                                               conv_type)
                   ->get_code();
 
         lu << R"(
@@ -203,6 +230,11 @@ LanguageUnit_p cuda::ConvolutionCudnn::emit_function_signature()
 }
 
 REGISTER_KERNEL_EMITTER(
-    "Convolution",                                                             // op_name
-    Device(CUDA_GPU).TypeConstraint(DT_FLOAT).Tag("cudnn_kernel").Priority(2), // attrs
-    cuda::ConvolutionCudnn)                                                    // constructor
+    "Convolution",                                                                 // op_name
+    Device(CUDA_GPU).TypeConstraint(element::f32).Tag("cudnn_kernel").Priority(2), // attrs
+    cuda::ConvolutionCudnn)                                                        // constructor
+
+REGISTER_KERNEL_EMITTER(
+    "Convolution",                                                                 // op_name
+    Device(CUDA_GPU).TypeConstraint(element::f16).Tag("cudnn_kernel").Priority(2), // attrs
+    cuda::ConvolutionCudnn)                                                        // constructor

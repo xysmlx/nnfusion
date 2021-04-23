@@ -8,6 +8,7 @@ using namespace nnfusion;
 using namespace nnfusion::kernels;
 
 DECLARE_bool(fextern_result_memory);
+DECLARE_bool(fhost_entry);
 
 cuda::Result::Result(shared_ptr<KernelContext> ctx)
     : CudaLibEmitter(ctx)
@@ -29,7 +30,7 @@ LanguageUnit_p cuda::Result::emit_function_signature()
 
     vector<string> params;
     params.push_back(m_context->inputs[0]->get_element_type().c_type_string() + "* input0");
-    if (need_copy_to_host && !FLAGS_fextern_result_memory)
+    if (need_copy_to_host && !FLAGS_fextern_result_memory && !FLAGS_fhost_entry)
     {
         params.push_back(m_context->outputs[0]->get_element_type().c_type_string() + "** output0");
     }
@@ -57,13 +58,17 @@ LanguageUnit_p cuda::Result::emit_function_body()
     {
         if (FLAGS_fextern_result_memory)
         {
-            auto& dst = m_context->outputs[0];
-            auto& src = m_context->inputs[0];
-            *_lu << dst->get_element_type().c_type_string() << "* " << dst->get_name()
-                 << " = output0;\n";
-            *_lu << src->get_element_type().c_type_string() << "* " << src->get_name()
-                 << " = input0;\n";
-            emit_memcpyDtD(*_lu, dst, src);
+            // auto& dst = m_context->outputs[0];
+            // auto& src = m_context->inputs[0];
+            // *_lu << dst->get_element_type().c_type_string() << "* " << dst->get_name()
+            //      << " = output0;\n";
+            // *_lu << src->get_element_type().c_type_string() << "* " << src->get_name()
+            //      << " = input0;\n";
+            // emit_memcpyDtD(*_lu, dst, src);
+            // *_lu << "CUDA_SAFE_CALL(cudaMemcpyAsync(output0, input0, 4, cudaMemcpyDeviceToDevice, stream));";
+            *_lu << "if (input0 != output0)\n";
+            *_lu << "    CUDA_SAFE_CALL(cudaMemcpyAsync(output0, input0,"
+                 << m_context->outputs[0]->size() << ", cudaMemcpyDeviceToDevice, stream));";
         }
         else
         {
@@ -83,7 +88,15 @@ LanguageUnit_p cuda::Result::emit_dependency()
     return _lu;
 }
 
+bool cuda::Result::is_eliminative()
+{
+    if (FLAGS_fhost_entry && m_context->inputs[0]->is_same_address(m_context->outputs[0]))
+        return true;
+    else
+        return false;
+}
+
 REGISTER_KERNEL_EMITTER(
-    "Result",                                                              // op_name
-    Device(CUDA_GPU).TypeConstraint(DT_FLOAT).Tag("cuda_lib").Priority(2), // attrs
-    cuda::Result)                                                          // constructor
+    "Result",                                                                  // op_name
+    Device(CUDA_GPU).TypeConstraint(element::f32).Tag("cuda_lib").Priority(2), // attrs
+    cuda::Result)                                                              // constructor

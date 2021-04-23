@@ -136,7 +136,7 @@ auto func = [&](int __rank__)
                 out += size;
                 continue;
             }
-            const float* inp = inputs[i] + (skipped_rows * size);
+            const float* inp = reinterpret_cast<float*>(inputs[i] + (skipped_rows * size));
             if (offset > 0)
             {
                 out += offset;
@@ -156,7 +156,7 @@ auto func = [&](int __rank__)
     inp.reserve(@input_num@);
     for (int i = 0; i < @input_num@; ++i)
     {
-        inp.push_back(inputs[i] + skipped_rows * input_strides[i]);
+        inp.push_back(reinterpret_cast<float*>(inputs[i] + skipped_rows * input_strides[i]));
     }
     const int64_t dim0 = @dim0@;
     for (int64_t i = skipped_rows; i < dim0; ++i)
@@ -199,7 +199,7 @@ thread_pool->ParallelFor(num_shards, func);
                 std::vector<uint32_t> input_strides;
                 uint64_t output_size, output_stride, dim0;
                 string dtype;
-                bool is_memcpy;
+                bool is_memcpy = false;
             };
         } // namespace cpu
     }     // namespace kernels
@@ -209,6 +209,6 @@ using namespace nnfusion;
 using namespace nnfusion::kernels;
 
 REGISTER_KERNEL_EMITTER(
-    "Concat",                                                              // op_name
-    Device(GENERIC_CPU).TypeConstraint(DT_FLOAT).Tag("eigen").Priority(4), // attrs
+    "Concat",                                                                  // op_name
+    Device(GENERIC_CPU).TypeConstraint(element::f32).Tag("eigen").Priority(4), // attrs
     cpu::ConcatEigen)
