@@ -15,8 +15,10 @@ BitConverter::BitConverter(size_t inbit, size_t outbit)
     : Op("BitConverter")
 // Initialize the SparseDot Op according to the original Dot Op
 {
-    inbit=inbit;
-    outbit=outbit;
+    this->inbit=inbit;
+    this->outbit=outbit;
+    std::cout<<"inbit:"<<this->inbit<<" outbit:"<<this->outbit<<std::endl;
+    
 }
 
 void BitConverter::validate_and_infer_types(std::shared_ptr<graph::GNode> gnode)

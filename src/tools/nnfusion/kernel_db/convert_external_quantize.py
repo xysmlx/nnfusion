@@ -201,6 +201,16 @@ def gen_config(op_type, kernel, shared_memory, num_sync):
             "window_stride": kernel["parameters"]["window_stride"],
             "padding_below": kernel["parameters"]["padding_below"]
         }
+    elif (op_type == 'BitConverter'):
+        config["in_shape"] = []
+        for i in range(100):
+            input_key = "arg%d_shape" % i 
+            if input_key in kernel["parameters"]:
+                config["in_shape"].append(kernel["parameters"][input_key])
+        config["out_shape"] = [kernel["parameters"]["out_shape"]]
+        in_paranames = ','.join(['float* __restrict__ input%d'%i for i in range(len(config["in_shape"]))])
+        config[
+            "function_signature"] = "extern \"C\" __global__  void (%s, float* __restrict__ output0)" % in_paranames
     else:
         raise ("not implemented")
 

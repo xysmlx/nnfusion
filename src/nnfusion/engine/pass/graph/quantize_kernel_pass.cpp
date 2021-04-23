@@ -48,8 +48,10 @@ public:
             std::istringstream iss(line);
             string name;
             int n_bit;
-            iss >> name >> n_bit;
+            int need_converter;
+            iss >> name >> n_bit>>need_converter;
             quantize_cfg[name] = n_bit;
+            fneed_converter[name] = need_converter;
             std::cout<<"Quantized Layer"<<name<<std::endl;
         }
     }
@@ -363,23 +365,20 @@ public:
             }
         }
         // insert the bit converter here
-        bool need_converter = false;
-        std::shared_ptr<GNode> activation_node;
-        std::shared_ptr<Edge> activation_edge;
-        for(auto in_edge : cur_node->get_in_edges())
-        {
-            auto src_node = in_edge->get_src();
-            if(!src_node->is_constant()){
-                // input activation
-                activation_node = src_node;
-                activation_edge = in_edge;
-                if(quantize_cfg.count(src_node->get_name())==0){
-                    // the quantize node will handle the bit convertion
-                    need_converter = true;
+        int need_converter = fneed_converter[cur_node->get_name()];
+
+        if (need_converter){
+            std::shared_ptr<GNode> activation_node;
+            std::shared_ptr<Edge> activation_edge;
+            for(auto in_edge : cur_node->get_in_edges())
+            {
+                auto src_node = in_edge->get_src();
+                if(!src_node->is_constant()){
+                    // input activation
+                    activation_node = src_node;
+                    activation_edge = in_edge;
                 }
             }
-        }
-        if (need_converter){
             int ori_device_id = (*activation_node)["DeviceID"];
 
             float * convert_scale_integer_data = (float*)malloc(sizeof(float));
@@ -415,6 +414,8 @@ public:
             converter_node->Set<NNFusion_DeviceType>("DeviceType", move(dt));
             converter_node->Set<int>("DeviceID", move(ori_device_id));
             m_graph->add_node(converter_node);
+            m_graph->add_node(convert_scale_integer_node);
+            m_graph->add_node(convert_scale_shift_node);
             m_graph->add_edge(activation_node, src_out, converter_node, 0);
             m_graph->add_edge(convert_scale_integer_node, 0, converter_node, 1);
             m_graph->add_edge(convert_scale_shift_node, 0, converter_node, 2);
@@ -637,6 +638,7 @@ private:
     std::shared_ptr<Graph> m_graph;
     std::string cfg_path;
     std::map<string, int> quantize_cfg;
+    std::map<string, int> fneed_converter; 
     std::shared_ptr<nnfusion::cache::KernelCacheManager> cache_manager;
 };
 

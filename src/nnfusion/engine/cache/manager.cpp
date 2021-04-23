@@ -89,6 +89,7 @@ CREATE TABLE IF NOT EXISTS KernelCache(
 			      "QuantizeConvAdd",
 			      "QuantizeDotAddRelu",
 			      "QuantizeConvAddRelu",
+                  "BitConverter",
                               "Convolution",
                               "AvgPool",
                               "MaxPool",
@@ -138,6 +139,7 @@ SELECT Key, Identifier, OpType, Attributes, Source, DeviceType, Function, Tags, 
         {
             NNFUSION_LOG(DEBUG) << "Unsupported op_type: " << fetched_kernel->op_type
                                 << ", ingore this fetch";
+            throw "No supported kernel type fetch from kernel db";
             fetched.clear();
             break;
         }
