@@ -41,6 +41,10 @@ param_list = {
         'symbol': ['input0', 'input1', 'output0'],
         'dtype': ['float*', 'float*', 'float*']
     },
+    "BitConverter":{
+        'symbol': ['input0', 'input1', 'input2', 'output0'],
+        'dtype': ['float*', 'float*', 'float*', "float*"]
+    },
     "QuantizeDot": {
         'symbol': ['input0', 'input1', 'input2', 'input3', 'input4', 'input5', 'output0'],
         'dtype': ['float*', 'float*', 'float*', 'float*', 'float*', 'float*', "float*"]
