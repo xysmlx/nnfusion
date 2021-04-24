@@ -225,7 +225,18 @@ public:
             auto n_device_type = (*node)["DeviceType"].as<NNFusion_DeviceType>();
             NNFUSION_CHECK(n_device_type != UNKNOWN);
             std::cout << "Quantize Node name: " << node->get_name()
-                      << "Type: " << node->get_op_type() << std::endl;
+                      << "  Type: " << node->get_op_type();
+            if (node->get_op_type()=="Dot"){
+                bool has_bias=false;
+                for(auto in_edge: node->get_in_edges()){
+                    auto src_node = in_edge->get_src();
+                    if(src_node->is_constant()){
+                        has_bias=true;
+                    }
+                }
+                std::cout<<" IsLinear:"<<has_bias<<std::endl;
+            }
+            std::cout<<std::endl;
             if (quantize_cfg.count(node->get_name()) == 0)
                 continue;
             int quantize_bit = quantize_cfg[node->get_name()];
