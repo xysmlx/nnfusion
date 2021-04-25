@@ -232,9 +232,10 @@ public:
                     auto src_node = in_edge->get_src();
                     if(src_node->is_constant()){
                         has_bias=true;
+                        std::cout<<" IsLinear:"<<has_bias<<" Shape:"<<src_node->get_output_shape(0);
+                        std::cout<<std::endl;
                     }
                 }
-                std::cout<<" IsLinear:"<<has_bias<<std::endl;
             }
             std::cout<<std::endl;
             if (quantize_cfg.count(node->get_name()) == 0)

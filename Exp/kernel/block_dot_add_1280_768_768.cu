@@ -120,7 +120,7 @@ extern "C" __global__ void BlockMatrixMulCUDA_8bit_bias(float *input0, float *in
           const int *tile_ptr =
               shmem_warp_tile_ptr + i * SHMEM_STRIDE * K + j * N;
   
-          wmma::load_matrix_sync(c[i][j], tile_ptr, SHMEM_STRIDE, C_LAYOUT);
+          wmma::load_matrix_sync(c[i][j], tile_ptr, SHMEM_STRIDE, wmma::mem_row_major);
         }
       }
   
@@ -220,7 +220,7 @@ extern "C" __global__ void BlockMatrixMulCUDA_8bit_bias(float *input0, float *in
   
           int *tile_ptr = shmem_warp_tile_ptr + i * SHMEM_STRIDE * K + j * N;
   
-          wmma::store_matrix_sync(tile_ptr, c[i][j], SHMEM_STRIDE, C_LAYOUT);
+          wmma::store_matrix_sync(tile_ptr, c[i][j], SHMEM_STRIDE, wmma::mem_row_major);
         }
       }
   
