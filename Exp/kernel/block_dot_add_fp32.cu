@@ -4,8 +4,9 @@ extern "C" __global__ void BlockMatrixMulCUDA_8bit_bias(float *input0, float *in
 {
 
     const unsigned int M_GLOBAL=1024;
-    const unsigned int N_GLOBAL=512;
     const unsigned int K_GLOBAL=1024;
+    const unsigned int N_GLOBAL=512;
+    
     // const parameters
     const unsigned int  WARP_SIZE=32;
     const unsigned int  M=16;
@@ -16,8 +17,9 @@ extern "C" __global__ void BlockMatrixMulCUDA_8bit_bias(float *input0, float *in
     const unsigned int  WMMA_K=16;
 
     const unsigned int  M_TILES=64;
-    const unsigned int  N_TILES=32;
     const unsigned int  K_TILES=64;
+    const unsigned int  N_TILES=32;
+    
 
 
     // typedef C_LAYOUT wmma::mem_row_major;

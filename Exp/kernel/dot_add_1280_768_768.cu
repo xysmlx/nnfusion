@@ -4,8 +4,9 @@ extern "C" __global__ void MatrixMulCUDA_8bit_bias(float *input0, float *input1,
 {
 
     const unsigned int M_GLOBAL=1280;
-    const unsigned int N_GLOBAL=768;
     const unsigned int K_GLOBAL=768;
+    const unsigned int N_GLOBAL=768;
+    
     // const parameters
     const unsigned int  WARP_SIZE=32;
     const unsigned int  M=16;

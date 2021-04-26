@@ -1,14 +1,20 @@
 import json
 import sys
+import os
 
+files = os.listdir('./kernel')
 
+def inject(jsonf, cuf):
 
-assert len(sys.argv) == 3
-with open(sys.argv[1], "r") as f:
-    data = json.load(f)
-with open(sys.argv[2], "r") as f:
-    code = f.read()
+    with open(jsonf, "r") as f:
+        data = json.load(f)
+    with open(cuf, "r") as f:
+        code = f.read()
 
-data[0]["code"] = code
-with open(sys.argv[1], "w") as f:
-    json.dump(data, f)
+    data[0]["code"] = code
+    with open(jsonf, "w") as f:
+        json.dump(data, f)
+
+for f in files:
+    if os.path.splitext(f)[-1]=='json':
+        print(f)
