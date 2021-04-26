@@ -131,7 +131,7 @@ def gen_key(data, dtype="float"):
                                     for i in parameters["padding_below"]) + "}"
     elif "QuantizeDot" in op_type:
         key += "quantize" + str(data["in_quantize_bit"]) + 'bit_' + str(data["out_quantize_bit"]) + "bit"
-        import pdb; pdb.set_trace()
+        # import pdb; pdb.set_trace()
         if "identifier_suffix" in data:
             key += data["identifier_suffix"]
         if "identifier_prefix" in data:
@@ -307,7 +307,7 @@ if __name__ == '__main__':
         # import pdb; pdb.set_trace()
         prepare_file(signature, sync_code, config,
                      db_path + "profile/", parse=True)
-        import pdb; pdb.set_trace()
+        # import pdb; pdb.set_trace()
         # num_sync = log_sync(signature, db_path + "profile/")
         num_sync = 0
         config["num_syncthreads"] = num_sync
