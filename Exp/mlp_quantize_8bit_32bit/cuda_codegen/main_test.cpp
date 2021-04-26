@@ -69,7 +69,7 @@ int main(int argc, char *argv[]){
     for (int i_=0; i_<steps; i_++)
     {
         cudaEventRecord(start_i, 0);
-        CUDA_SAFE_CALL(cudaMemcpy(Parameter_8_0, Parameter_8_0_host, sizeof(float) * 1048576, cudaMemcpyHostToDevice));
+        //CUDA_SAFE_CALL(cudaMemcpy(Parameter_8_0, Parameter_8_0_host, sizeof(float) * 1048576, cudaMemcpyHostToDevice));
         kernel_entry(Parameter_8_0, &Result_31_0);
         cudaEventRecord(stop_i, 0);
         cudaEventSynchronize(stop_i);
