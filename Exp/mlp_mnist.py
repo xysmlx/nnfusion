@@ -8,6 +8,8 @@ from torch.autograd import Variable
 from torch.utils.data import DataLoader
 from torch.optim.lr_scheduler import MultiStepLR, CosineAnnealingLR, StepLR
 import argparse
+from nni.algorithms.compression.pytorch.pruning import LevelPruner
+
 
 import time
 import numpy as np
@@ -33,7 +35,7 @@ class MLP(nn.Module):
         x = self.fc2(x)
         x = self.fc3(x)
         x = self.fc4(x)
-
+        return x
 
 class MLPSmall(nn.Module):
     def __init__(self):
@@ -63,10 +65,38 @@ class MLPSmall(nn.Module):
         return x
 
 
-dummy_input = torch.rand(1024, 1, 32, 32)
+# dummy_input = torch.rand(1024, 1, 32, 32)
 
 # model = MLP()
 # torch.onnx.export(model, dummy_input, 'mlp_norelu.onnx', verbose=True)
 
-small_model = MLPSmall()
-torch.onnx.export(small_model, dummy_input, 'mlp_norelu_small.onnx', verbose=True)
+# small_model = MLPSmall()
+# torch.onnx.export(small_model, dummy_input, 'mlp_norelu_small.onnx', verbose=True)
+
+def measure_time(model, data, runtimes=100):
+    times = []
+    sum=0
+    with torch.no_grad():
+        for runtime in range(runtimes):
+            torch.cuda.synchronize()
+            start = time.time_ns()
+            out=model(*data)
+            # sum+=out[0][0]
+            torch.cuda.synchronize()
+            end = time.time_ns()
+            times.append(end-start)
+    print(sum)
+    _drop = int(runtimes * 0.1)
+    mean = np.mean(times[_drop:-1*_drop])
+    std = np.std(times[_drop:-1*_drop])
+    return mean, std
+
+model = MLP().cuda()
+# model.load_state_dict(torch.load('./MLP_Finegrained/mlp_mid_finegrained_prune_0.980_acc_0.950.pth'))
+dummy_input = torch.rand(1024, 1, 32, 32).cuda()
+# import pdb; pdb.set_trace()
+# model(dummy_input)
+# torch.onnx.export(model, dummy_input, 'mlp_norelu_finegrained.onnx')
+t_mean, t_std = measure_time(model, [dummy_input])
+print(t_mean/1000.0)
+

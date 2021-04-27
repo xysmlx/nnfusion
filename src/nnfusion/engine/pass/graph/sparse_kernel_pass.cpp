@@ -32,8 +32,7 @@ public:
         , cfg_path(sparse_cfg)
         , sparse_threshold(threshold)
     {
-        load_sparse_cfg();
-        cache_manager = std::make_shared<nnfusion::cache::KernelCacheManager>();
+        
     }
     void load_sparse_cfg()
     {
@@ -87,9 +86,28 @@ public:
         }
         return nullptr;
     }
-
-    bool Optimize()
+    bool CusparseOptimize()
     {
+        auto gnodes = m_graph->get_ordered_ops();
+        for (auto node : gnodes)
+        {
+            // traverse all nodes and check whether is valuable to
+            // to use the sparse kernel
+            if (node->get_op_type() == "Dot")
+            {
+                DotSparseOptimize(node);
+            }
+            else if (node->get_op_type() == "Conv2d")
+            {
+                // ???
+            }
+        }
+        return true;
+    }
+    bool CustomizedKernelOptimize()
+    {
+        load_sparse_cfg();
+        cache_manager = std::make_shared<nnfusion::cache::KernelCacheManager>();
         if(!cache_manager->is_valid())
         {
             NNFUSION_LOG(INFO) << "No valid kernel cache, cannot find sparse kernel, use cusparse instead";
@@ -172,7 +190,7 @@ private:
                 std::shared_ptr<vector<float>> values;
                 std::tie(row_idx, col_idx, values) = convert_to_csr<float>(
                     static_cast<const float*>(data_ptr), m_shape, sparse_threshold);
-                insert_sparse_dot<float>(m_graph, in_edge, row_idx, col_idx, values);
+                insert_sparse_dot(m_graph, in_edge, row_idx, col_idx, values);
                 has_constant = true;
                 break;
             }
@@ -225,40 +243,55 @@ private:
         row_idx->push_back(values->size());
         return std::make_tuple(row_idx, col_idx, values);
     }
-    template <typename scalar_t>
+    
     void insert_sparse_dot(std::shared_ptr<Graph> pgraph,
                            std::shared_ptr<Edge> in_edge,
                            std::shared_ptr<vector<int32_t>> row_idx,
                            std::shared_ptr<vector<int32_t>> col_idx,
-                           std::shared_ptr<vector<scalar_t>> values)
+                           std::shared_ptr<vector<float>> values)
     {
         std::shared_ptr<GNode> src_node = in_edge->get_src();
         std::shared_ptr<GNode> dst_node = in_edge->get_dst();
+        auto n_device_type = (*dst_node)["DeviceType"].as<NNFusion_DeviceType>();
+        NNFUSION_CHECK(n_device_type != UNKNOWN);
+        int ori_device_id = (*dst_node)["DeviceID"];
         //create the constant nodes for the csr format weight
         auto row_idx_cons = std::make_shared<op::Constant>(
             from<int32_t>(), nnfusion::Shape({row_idx->size()}), (void*)row_idx->data());
         auto row_idx_node = std::make_shared<GNode>(row_idx_cons, GNodeVector({}));
         row_idx_node->get_op_ptr()->revalidate_and_infer_types(row_idx_node->shared_from_this());
 
+        row_idx_node->Set<NNFusion_DeviceType>("DeviceType", move(n_device_type));
+        row_idx_node->Set<int>("DeviceID", move(ori_device_id));
+
         auto col_idx_cons = std::make_shared<op::Constant>(
             from<int32_t>(), nnfusion::Shape({col_idx->size()}), (void*)col_idx->data());
         auto col_idx_node = std::make_shared<GNode>(col_idx_cons, GNodeVector({}));
         col_idx_node->get_op_ptr()->revalidate_and_infer_types(col_idx_node->shared_from_this());
+
+        col_idx_node->Set<NNFusion_DeviceType>("DeviceType", move(n_device_type));
+        col_idx_node->Set<int>("DeviceID", move(ori_device_id));
+
         auto values_cons = std::make_shared<op::Constant>(
-            from<scalar_t>(), nnfusion::Shape({values->size()}), (void*)values->data());
-        auto values_node = std::make_shared<GNode>(values_cons, GNodeVector({}));
-        values_node->get_op_ptr()->revalidate_and_infer_types(values_node->shared_from_this());
-        auto dense_op = std::dynamic_pointer_cast<op::Dot>(
-            dst_node->get_op_ptr()); // The original dense gemm op
+            from<float>(), nnfusion::Shape({values->size()}), (void*)values->data());
+        auto csr_values_node = std::make_shared<GNode>(values_cons, GNodeVector({}));
+        csr_values_node->get_op_ptr()->revalidate_and_infer_types(csr_values_node->shared_from_this());
+
+        csr_values_node->Set<NNFusion_DeviceType>("DeviceType", move(n_device_type));
+        csr_values_node->Set<int>("DeviceID", move(ori_device_id));
+
+
+
+        auto dense_op = std::dynamic_pointer_cast<op::Dot>(dst_node->get_op_ptr()); // The original dense gemm op
 
         pgraph->add_node(row_idx_node);
         pgraph->add_node(col_idx_node);
-        pgraph->add_node(values_node);
+        pgraph->add_node(csr_values_node);
 
         auto dst_pos = in_edge->get_dst_input();
         size_t other_input = 1 - dst_pos;
         auto other_node = dst_node->get_in_edge(other_input)->get_src();
-        GNodeVector input_gv({row_idx_node, col_idx_node, values_node, other_node});
+        GNodeVector input_gv({row_idx_node, col_idx_node, csr_values_node, other_node});
         auto ori_sparse_shape = src_node->get_output_shape(0);
         auto sparse_op =
             std::make_shared<op::SparseDot>(dense_op, dst_pos, values->size(), ori_sparse_shape);
@@ -266,6 +299,10 @@ private:
                            << 1.0 * values->size() / ori_sparse_shape[0] / ori_sparse_shape[1]
                            << "\n";
         auto sparse_node = std::make_shared<GNode>(sparse_op, input_gv);
+
+        sparse_node->Set<NNFusion_DeviceType>("DeviceType", move(n_device_type));
+        sparse_node->Set<int>("DeviceID", move(ori_device_id));
+        
         for (int i = 0; i < input_gv.size(); i++)
         {
             pgraph->add_edge(input_gv.at(i), 0, sparse_node, i);
@@ -295,5 +332,12 @@ bool SparseKernelPass::run_on_graph(std::shared_ptr<Graph>& graph)
         return true;
     NNFUSION_LOG(INFO) << "Enable the Sparse kernels";
     SparseKernelOptimizer optimizer(graph, FLAGS_fsparse_cfg,1e-6);
-    return optimizer.Optimize();
+    bool re=false;
+    if(FLAGS_fsparse_cfg.size()>0){
+        // Customized Kernel optimize is in hign priority
+        re = optimizer.CustomizedKernelOptimize();
+    }else{
+        re = optimizer.CusparseOptimize();
+    }
+    return re;
 }

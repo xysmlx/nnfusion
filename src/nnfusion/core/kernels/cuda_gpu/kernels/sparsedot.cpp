@@ -51,20 +51,23 @@ LanguageUnit_p cuda::SparseDot::emit_function_body()
         }else if(sparse_idx == 1){
             // calculate in col-major
             int m, k, n;
+
+            std::cout<<"Dense Shape"<< dense_shape[0] << "  "<<dense_shape[1]<<std::endl;
             m = dense_shape[0];
             k = dense_shape[1];
             n = trans_B? sparse_shape[0]: sparse_shape[1];
             if(trans_B){
-                assert(k == sparse_shape[0]);
-            }else{
+                std::cout<<k<<" "<<sparse_shape[0]<<" "<<sparse_shape[1]<<std::endl;
                 assert(k == sparse_shape[1]);
+            }else{
+                assert(k == sparse_shape[0]);
             }
             lu << "CUSPARSE_SAFE_CALL(cusparseScsrmm("
                << "cusparse_handle"\
                << ", "<<trans_string[!trans_B]\
-               << ", "<<k //M
+               << ", "<<n //M
                << ", "<<m //N
-               << ", "<<n //K
+               << ", "<<k //K
                << ", "<<sparse_nnz
                << ", &alpha"
                << ", descrA"
@@ -75,7 +78,7 @@ LanguageUnit_p cuda::SparseDot::emit_function_body()
                << ", "<<k  //LDB
                << ",&beta"
                << ",output0"
-               << ","<<k<<"));"; //LDC
+               << ","<<n<<"));"; //LDC
         }else{
             throw "Invalid sparse index for the SparseDot operation!";
         }
