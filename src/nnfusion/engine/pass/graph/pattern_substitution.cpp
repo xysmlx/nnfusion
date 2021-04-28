@@ -31,6 +31,7 @@ const static std::vector<std::vector<std::string>> PATTERNS = {
     // {"Convolution", "BatchNormInference", "Add"},
     // {"Convolution", "BatchNormInference"},
     // Conv-BN-Relu is converted into Conv-Add-Relu
+    {"DepthwiseConv2dNative", "Add", "Relu"},
     {"Convolution", "Add", "Relu"},
     {"Convolution", "Relu"}};
 
@@ -148,14 +149,19 @@ private:
         }
         if (identifier != "")
         {
-            // Todo: more tags, more platform
-            std::set<std::string> tags = {};
-            auto fetched_kernel = kernel_db->fetch_with_tags(identifier, "CUDA", tags);
-            if (fetched_kernel != nullptr)
+            auto fetched = kernel_db->fetch_all(identifier, "CUDA_GPU");
+            for (auto fetched_kernel : fetched)
             {
-                NNFUSION_CHECK(fetched_kernel->function != "");
-                NNFUSION_LOG(INFO) << "Substitution applied: " << identifier;
-                return Substitution(matched, identifier);
+                if (fetched_kernel->source == "External")
+                {
+                    if (fetched_kernel->tags.find("BlockCudaEmitter") != fetched_kernel->tags.end() ||
+                        fetched_kernel->tags.find("CudaEmitter") != fetched_kernel->tags.end())
+                    {
+                        NNFUSION_CHECK(fetched_kernel->function != "");
+                        NNFUSION_LOG(INFO) << "Substitution applied: " << identifier;
+                        return Substitution(matched, identifier);
+                    }
+                }
             }
         }
         return id;
