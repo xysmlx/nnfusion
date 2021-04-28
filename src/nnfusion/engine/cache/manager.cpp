@@ -89,6 +89,8 @@ CREATE TABLE IF NOT EXISTS KernelCache(
                               "MaxPool",
                               "Fused_Convolution_Relu",
                               "Fused_Convolution_Add_Relu",
+                              "Fused_DepthwiseConv2dNative_Relu",
+                              "Fused_DepthwiseConv2dNative_Add_Relu",
                               "Matched_Pattern"});
     }
 }
