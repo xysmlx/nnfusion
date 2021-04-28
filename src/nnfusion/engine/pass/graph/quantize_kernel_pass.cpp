@@ -514,9 +514,46 @@ public:
         auto pad_w_node = create_constant_node(dt, ori_device_id, padding_w);
         input_gv.push_back(pad_h_node);
         input_gv.push_back(pad_w_node);
-        
 
 
+        for(int i=2;i<input_gv.size();i++)
+            m_graph->add_node(input_gv[i]);
+
+        auto quan_depth_conv = std::make_shared<op::QuantizeDepthConv>(8);
+        auto quan_conv_node = std::make_shared<GNode>(quan_depth_conv, input_gv);
+        quan_conv_node->Set<NNFusion_DeviceType>("DeviceType", move(dt));
+        quan_conv_node->Set<int>("DeviceID", move(ori_device_id));
+
+        for(int i=0;i<input_gv.size();i++){
+            m_graph->add_edge(input_gv.at(i), 0, quan_conv_node, i);
+        }
+        auto last_node = cur_node;
+        if (fused_ops.size())
+            last_node = fused_ops[fused_ops.size() - 1];
+        auto ori_outputs = last_node->get_outputs();
+        for (int i = 0; i < ori_outputs.size(); i++)
+        {
+            quan_conv_node->set_output(i, ori_outputs[i]);
+        }
+        fused_ops.push_back(cur_node);
+        m_graph->replace_node(last_node, quan_conv_node, false);
+        for(auto tmp_node:fused_ops){
+            if(tmp_node!=last_node){
+                m_graph->remove_node(tmp_node);
+            }
+        }
+        std::shared_ptr<KernelContext> ctx(new KernelContext(quan_conv_node));
+        auto kernel = std::make_shared<kernels::cuda::CacheCudaEmitter>(ctx, kernel_entry);
+        KernelEmitter::Pointer pkernel = kernel;
+
+        // need to emit the source before bind the kernel
+        kernel->get_or_emit_source();
+        (*quan_conv_node)["Kernel_Selection_Result"] = std::make_pair(dt, pkernel);
+        std::cout << "###############################" << std::endl;
+        // std::cout << kernel->get_or_emit_source()->body_unit->get_code() << std::endl;
+        // std::cout << kernel->get_or_emit_source()->signature_unit->get_code() << std::endl;
+        //exit(-1);
+        std::cout << "Bind the Quantized kernel!" << std::endl;
 
     }
     void DotQuantizeOptimize8bit(std::shared_ptr<GNode> cur_node,
