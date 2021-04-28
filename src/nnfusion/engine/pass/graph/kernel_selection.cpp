@@ -283,8 +283,8 @@ bool DefaultKernelSelector::run_on_graph(std::shared_ptr<nnfusion::graph::Graph>
         {
             if (!(*it)["DeviceType"].is_valid())
             {
-                NNFUSION_CHECK_FAIL() << "GNode DeviceType should be assigned before this pass："
-                                      << it->get_name();
+                NNFUSION_CHECK_FAIL()
+                    << "GNode DeviceType should be assigned before this pass：" << it->get_name();
             }
             auto n_device_type = (*it)["DeviceType"].as<NNFusion_DeviceType>();
             NNFUSION_CHECK(n_device_type != UNKNOWN);
@@ -326,13 +326,23 @@ pair<NNFusion_DeviceType, kernels::KernelEmitter::Pointer>
             {
                 if (kernel_entry->source == "External")
                 {
-                    NNFUSION_CHECK(kernel_entry->tags.find("BlockCudaEmitter") !=
-                                   kernel_entry->tags.end());
-                    auto kernel =
-                        std::make_shared<kernels::cuda::CacheBlockCudaEmitter>(ctx, kernel_entry);
-                    if (kernel->get_or_emit_source())
+                    if (kernel_entry->tags.find("BlockCudaEmitter") != kernel_entry->tags.end())
                     {
-                        return std::make_pair(devtype, kernel);
+                        auto kernel = std::make_shared<kernels::cuda::CacheBlockCudaEmitter>(
+                            ctx, kernel_entry);
+                        if (kernel->get_or_emit_source())
+                        {
+                            return std::make_pair(devtype, kernel);
+                        }
+                    }
+                    else if (kernel_entry->tags.find("CudaEmitter") != kernel_entry->tags.end())
+                    {
+                        auto kernel =
+                            std::make_shared<kernels::cuda::CacheCudaEmitter>(ctx, kernel_entry);
+                        if (kernel->get_or_emit_source())
+                        {
+                            return std::make_pair(devtype, kernel);
+                        }
                     }
                 }
             }
@@ -407,8 +417,8 @@ bool FetchBasedSelector::run_on_graph(std::shared_ptr<nnfusion::graph::Graph>& g
         {
             if (!(*it)["DeviceType"].is_valid())
             {
-                NNFUSION_CHECK_FAIL() << "GNode DeviceType should be assigned before this pass："
-                                      << it->get_name();
+                NNFUSION_CHECK_FAIL()
+                    << "GNode DeviceType should be assigned before this pass：" << it->get_name();
             }
             auto n_device_type = (*it)["DeviceType"].as<NNFusion_DeviceType>();
             NNFUSION_CHECK(n_device_type != UNKNOWN);

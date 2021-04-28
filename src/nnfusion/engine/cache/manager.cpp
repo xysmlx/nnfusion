@@ -84,6 +84,7 @@ CREATE TABLE IF NOT EXISTS KernelCache(
         }
         SupportOpList.insert({"Dot",
                               "Convolution",
+                              "DepthwiseConv2dNative",
                               "AvgPool",
                               "MaxPool",
                               "Fused_Convolution_Relu",
