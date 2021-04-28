@@ -1,7 +1,7 @@
 [
     {
         "tvm_func_name": "MatrixMulCUDA_8bit",
-        "op_type": "QuantizeDotAdd",
+        "op_type": "QuantizeDot",
         "parameters": {
             "arg0_shape": [
                 1024,
