@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 #include "kernel_emitter.hpp"
+#include "nnfusion/core/operators/generic_op/generic_op.hpp"
 #include "nnfusion/engine/async_manager.hpp"
 
 #include <string>
@@ -463,6 +464,22 @@ std::string nnfusion::kernels::KernelContext::generate_identifier()
         str << conv->get_window_movement_strides();
         str << conv->get_window_dilation_strides();
         str << conv->get_padding_below();
+        identifier += str.str();
+    }
+    else if (op_type == "DepthwiseConv2dNative")
+    {
+        auto op = std::dynamic_pointer_cast<nnfusion::op::GenericOp>(ctx->gnode->get_op_ptr());
+        NNFUSION_CHECK_NOT_NULLPTR(op);
+        std::stringstream str;
+        std::vector<size_t> tmp_vec1 = op->localOpConfig.getRoot()["strides"];
+        nnfusion::Strides window_movement_strides = nnfusion::Strides(tmp_vec1);
+        std::vector<size_t> tmp_vec2 = op->localOpConfig.getRoot()["dilations"];
+        nnfusion::Strides window_dilation_strides = nnfusion::Strides(tmp_vec2);
+        std::vector<ptrdiff_t> tmp_vec3 = op->localOpConfig.getRoot()["padding_before"];
+        nnfusion::CoordinateDiff padding_below = nnfusion::CoordinateDiff(tmp_vec3);
+        str << window_movement_strides;
+        str << window_dilation_strides;
+        str << padding_below;
         identifier += str.str();
     }
     else if (op_type == "AvgPool")

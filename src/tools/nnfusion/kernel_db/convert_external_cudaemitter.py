@@ -73,7 +73,8 @@ conv_family = ["Convolution", "Fused_Convolution_Relu"] + conv_augmented
 
 depthwise_conv_augmented = ["Fused_DepthwiseConv2dNative_Batchnorm",
                             "Fused_DepthwiseConv2dNative_Batchnorm_Relu", "Fused_DepthwiseConv2dNative_Add_Relu"]
-depthwise_conv_family = ["DepthwiseConv2dNative", "Fused_DepthwiseConv2dNative_Relu"] + conv_augmented
+depthwise_conv_family = ["DepthwiseConv2dNative",
+                         "Fused_DepthwiseConv2dNative_Relu"] + conv_augmented
 
 
 def gen_key(data, dtype="float"):
@@ -142,13 +143,11 @@ def gen_key(data, dtype="float"):
     return key
 
 
-def gen_config(op_type, kernel, shared_memory, num_sync):
+def gen_config(op_type, kernel):
     # the entries to retrive parameters depend on spec of json files
     config = {
         "op_type": op_type,
         "function_body": "",
-        "shared_memory": shared_memory,
-        "num_sync": num_sync,
         "blockDim": kernel["blockDim"],
         "gridDim": kernel["gridDim"],
     }
@@ -192,14 +191,14 @@ def gen_config(op_type, kernel, shared_memory, num_sync):
     return config
 
 
-def insert_db(name, resource, platform="CUDA_GPU", tags="", profile="Tesla V100-PCIE-16GB:1"):
+def insert_db(name, platform="CUDA_GPU", tags=""):
     # Todo: More tags could be used to store multiple implementations with the same kernel specs
-    in_file = open(name + ".cu")
+    # in_file = open(name + ".cu")
     json_file = open(name + ".json")
 
     data = json.load(json_file)
-    block_function_body = in_file.read()
-    data["block_function_body"] = block_function_body
+    # block_function_body = in_file.read()
+    # data["block_function_body"] = block_function_body
 
     key = data["function_body"]
     identifier = gen_key(data)
@@ -219,14 +218,14 @@ def insert_db(name, resource, platform="CUDA_GPU", tags="", profile="Tesla V100-
     function_dict.update({"function_body": data["function_body"]})
     function_dict.update({"grid_dim": data["gridDim"]})
     function_dict.update({"block_dim": data["blockDim"]})
-    function_dict.update({"block_function_body": data["block_function_body"]})
-    function_dict.update({"shared_memory": data["shared_memory"]})
-    function_dict.update({"num_syncthreads": data["num_syncthreads"]})
+    # function_dict.update({"block_function_body": data["block_function_body"]})
+    # function_dict.update({"shared_memory": data["shared_memory"]})
+    # function_dict.update({"num_syncthreads": data["num_syncthreads"]})
     function = json.dumps(function_dict)
 
     miscs_dict = {}
-    profile_dict = {"time": profile, "resource": resource}
-    miscs_dict.update({"external_profile": profile_dict})
+    # profile_dict = {"time": profile, "resource": resource}
+    # miscs_dict.update({"external_profile": profile_dict})
     miscs = json.dumps(miscs_dict)
 
     conn = sqlite3.connect(db_path + db_name)
@@ -272,12 +271,12 @@ if __name__ == '__main__':
         func_body, shared_memory, new_code, sync_code, signature = code_parse(
             kernel["code"], param_list[op_type])
 
-        config = gen_config(op_type, kernel, shared_memory, num_sync=0)
+        config = gen_config(op_type, kernel)
 
-        prepare_file(signature, sync_code, config,
-                     db_path + "profile/", parse=True)
-        num_sync = log_sync(signature, db_path + "profile/")
-        config["num_syncthreads"] = num_sync
+        # prepare_file(signature, sync_code, config,
+        #              db_path + "profile/", parse=True)
+        # num_sync = log_sync(signature, db_path + "profile/")
+        # config["num_syncthreads"] = num_sync
         config["function_body"] = func_body
 
         # feel free to customize the repo name you want
@@ -287,22 +286,21 @@ if __name__ == '__main__':
             os.mkdir(operator_path)
         with open(operator_path + name + ".json", "w+") as f:
             json.dump(config, f)
-        with open(operator_path + name + ".cu", "w+") as f:
-            f.write(new_code)
+        # with open(operator_path + name + ".cu", "w+") as f:
+        #     f.write(new_code)
 
         default_tags = ""
-        default_tags += "KernelEmitter,CudaEmitter,BlockCudaEmitter"
+        default_tags += "KernelEmitter,CudaEmitter"
         if (op_type == "Dot"):
             # Todo: move the transpose information into identifier
             default_tags += kernel["parameters"]["transpose_A"] * \
                 ",transA" + kernel["parameters"]["transpose_B"]*",transB"
 
         # apply rules that every 32 threads will be formed as a warp
-        resource = math.ceil(
-            prod(config["blockDim"])/32)*32 * prod(config["gridDim"])
+        # resource = math.ceil(
+        #     prod(config["blockDim"])/32)*32 * prod(config["gridDim"])
 
-        prepare_file(signature, kernel["code"], config, db_path + "profile/")
-        profile_info = profile(signature, db_path + "profile/")
-        print(profile_info, resource, config["num_syncthreads"])
-        insert_db(operator_path + name, resource,
-                  tags=default_tags, profile=profile_info)
+        # prepare_file(signature, kernel["code"], config, db_path + "profile/")
+        # profile_info = profile(signature, db_path + "profile/")
+        # print(profile_info, resource, config["num_syncthreads"])
+        insert_db(operator_path + name, tags=default_tags)
