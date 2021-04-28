@@ -44,7 +44,7 @@ namespace nnfusion
                         << "NNFusion only supports constant mode for ONNX pad op yet.";
 
                     auto pads = node.get_attribute_value<std::vector<int64_t>>(
-                        "pads", std::vector<int64_t>(input_gnode->get_shape().size(), 0));
+                        "pads", std::vector<int64_t>(input_gnode->get_shape().size() * 2, 0));
 
                     auto padding_value = node.get_attribute_value<float>("value", 0.0f);
                     NNFUSION_CHECK(fabs(padding_value) < 1e-5)
