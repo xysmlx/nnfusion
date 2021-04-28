@@ -199,6 +199,28 @@ public:
         }
         return fused_op;
     }
+    vector<std::shared_ptr<GNode>> get_conv_fuse_option(std::shared_ptr<GNode> conv_node)
+    {
+        vector<std::shared_ptr<GNode>> fused_op;
+        auto succs = find_successors(conv_node);
+        if (succs.size() == 0){
+            return vector<std::shared_ptr<GNode>>();
+        }
+        auto son_node = succs[0];
+        if (son_node->get_op_type().find("BatchNorm")!=std::string::npos){
+            fused_op.push_back(son_node);
+            auto grandsons = find_successors(son_node);
+            if (grandsons.size()>0){
+                if (grandsons[0]->get_op_type()=="Relu"){
+                    fused_op.push_back(grandsons[0]);
+                }
+            }
+
+        }else if(son_node->get_op_type() == "Relu"){
+            fused_op.push_back(son_node);
+        }
+        return fused_op;
+    }
     bool optimize()
     {
         if (!cache_manager->is_valid())
@@ -246,8 +268,9 @@ public:
             {
                 fused_op = get_dot_fuse_option(node);
             }
-            else if (node->get_op_type() == "Conv2d")
+            else if (node->get_op_type() == "Convolution" || node->get_op_type()=="DepthwiseConv2dNative")
             {
+                fused_op = get_conv_fuse_option(node);
             }
             else
             {
@@ -272,6 +295,10 @@ public:
             }
             else if (node->get_op_type() == "Conv2d")
             {
+                if (quantize_bit == 8)
+                {
+                    DepthConvQuantizeOptimize8bit(node, n_device_type, kernel_entry, fused_op);
+                }
             }
             // Get the corresponding kernel from the Kernel Cache
         }
@@ -323,6 +350,174 @@ public:
             // }
         }
         return nullptr;
+    }
+    std::shared_ptr<GNode> create_constant_node(NNFusion_DeviceType dt, int ori_device_id, int value=0)
+    {
+        int * ptr = (int *)malloc(sizeof(int)*2);
+        *ptr = value;
+        auto constant =
+                std::make_shared<op::Constant>(from<float>(),
+                                                nnfusion::Shape(vector<size_t>({1})),
+                                                static_cast<void*>(ptr));
+        auto constant_node = std::make_shared<GNode>(constant, GNodeVector({}));
+        constant->revalidate_and_infer_types(constant_node->shared_from_this());
+        constant_node->Set<NNFusion_DeviceType>("DeviceType", move(dt));
+        constant_node->Set<int>("DeviceID", move(ori_device_id));
+        return constant_node;
+    }
+    std::shared_ptr<GNode> create_constant_node(NNFusion_DeviceType dt, int ori_device_id, vector<size_t> shape)
+    {
+        int total_size = 1;
+        for(int i: shape)
+            total_size *= i;
+        float *ptr = (float*)malloc(sizeof(float)*total_size);
+        auto constant =
+                std::make_shared<op::Constant>(from<float>(),
+                                                nnfusion::Shape(shape),
+                                                static_cast<void*>(ptr));
+        auto constant_node = std::make_shared<GNode>(constant, GNodeVector({}));
+        constant->revalidate_and_infer_types(constant_node->shared_from_this());
+        constant_node->Set<NNFusion_DeviceType>("DeviceType", move(dt));
+        constant_node->Set<int>("DeviceID", move(ori_device_id));
+        return constant_node;
+    }
+    void DepthConvQuantizeOptimize8bit(std::shared_ptr<GNode> cur_node,
+                                 NNFusion_DeviceType dt,
+                                 nnfusion::cache::KernelEntry_p kernel_entry,
+                                 vector<std::shared_ptr<GNode>> fused_ops)
+    {
+        std::cout<<"In DepthConvQuantizeOptimize8bit"<<std::endl;
+        vector<std::shared_ptr<GNode>> need_remove;
+        int ori_device_id = (*cur_node)["DeviceID"];
+        bool has_bias = false;
+        bool has_relu = false;
+        int need_converter = fneed_converter[cur_node->get_name()];
+        if (need_converter){
+            std::shared_ptr<GNode> activation_node;
+            std::shared_ptr<Edge> activation_edge;
+            for(auto in_edge : cur_node->get_in_edges())
+            {
+                auto src_node = in_edge->get_src();
+                if(!src_node->is_constant()){
+                    // input activation
+                    activation_node = src_node;
+                    activation_edge = in_edge;
+                }
+            }
+            int ori_device_id = (*activation_node)["DeviceID"];
+
+            float * convert_scale_integer_data = (float*)malloc(sizeof(float));
+            float * convert_scale_shift_data = (float*)malloc(sizeof(float));
+            auto convert_scale_integer =
+                std::make_shared<op::Constant>(from<float>(),
+                                                nnfusion::Shape(vector<size_t>({1})),
+                                                static_cast<void*>(convert_scale_integer_data));
+            auto convert_scale_integer_node = std::make_shared<GNode>(convert_scale_integer, GNodeVector({}));
+            convert_scale_integer->revalidate_and_infer_types(convert_scale_integer_node->shared_from_this());
+            convert_scale_integer_node->Set<NNFusion_DeviceType>("DeviceType", move(dt));
+            convert_scale_integer_node->Set<int>("DeviceID", move(ori_device_id));
+
+            auto convert_scale_shift =
+                std::make_shared<op::Constant>(from<float>(),
+                                                nnfusion::Shape(vector<size_t>({1})),
+                                                static_cast<void*>(convert_scale_shift_data));
+            auto convert_scale_shift_node = std::make_shared<GNode>(convert_scale_shift, GNodeVector({}));
+            convert_scale_shift->revalidate_and_infer_types(convert_scale_shift_node->shared_from_this());
+            convert_scale_shift_node->Set<NNFusion_DeviceType>("DeviceType", move(dt));
+            convert_scale_shift_node->Set<int>("DeviceID", move(ori_device_id));
+
+            auto converter = std::make_shared<nnfusion::op::BitConverter>(32, 8);
+            int src_out = activation_edge->get_src_output();
+            int dst_input = activation_edge->get_dst_input();
+            m_graph->remove_edge(activation_edge);
+            auto convert_input = GNodeVector({activation_node, convert_scale_integer_node, convert_scale_shift_node});
+            auto converter_node = std::make_shared<GNode>(converter, convert_input);
+            converter_node->set_output_size(1);
+            auto shape = activation_node->get_output_shape(src_out);
+            converter_node->set_output_type_and_shape(0, from<float>(), shape);
+            converter_node->get_op_ptr()->revalidate_and_infer_types(converter_node->shared_from_this());
+            converter_node->Set<NNFusion_DeviceType>("DeviceType", move(dt));
+            converter_node->Set<int>("DeviceID", move(ori_device_id));
+            m_graph->add_node(converter_node);
+            m_graph->add_node(convert_scale_integer_node);
+            m_graph->add_node(convert_scale_shift_node);
+            m_graph->add_edge(activation_node, src_out, converter_node, 0);
+            m_graph->add_edge(convert_scale_integer_node, 0, converter_node, 1);
+            m_graph->add_edge(convert_scale_shift_node, 0, converter_node, 2);
+            m_graph->add_edge(converter_node, 0, cur_node, dst_input);
+            auto convert_kernel = fetch_kernel(cache_manager, converter_node, dt);
+            assert (convert_kernel!=nullptr);
+            std::shared_ptr<KernelContext> ctx(new KernelContext(converter_node));
+            auto kernel = std::make_shared<kernels::cuda::CacheCudaEmitter>(ctx, convert_kernel);
+            KernelEmitter::Pointer pkernel = kernel;
+
+            // need to emit the source before bind the kernel
+            kernel->get_or_emit_source();
+            (*converter_node)["Kernel_Selection_Result"] = std::make_pair(dt, pkernel);
+            std::cout << "###############################" << std::endl;
+            std::cout << kernel->get_or_emit_source()->body_unit->get_code() << std::endl;
+            std::cout << kernel->get_or_emit_source()->signature_unit->get_code() << std::endl;
+        }
+        vector<std::shared_ptr<GNode>> input_gv;
+        auto activation_node = cur_node->get_in_edge(0)->get_src();
+        auto weight_node = cur_node->get_in_edge(1)->get_src();
+        auto cur_op = cur_node->get_op_ptr();
+        auto _op = std::dynamic_pointer_cast<nnfusion::op::GenericOp>(cur_op);
+        const auto& dilation_h = int64_t(_op->localOpConfig.getRoot()["dilations"][0]);
+        const auto& dilation_w = int64_t(_op->localOpConfig.getRoot()["dilations"][1]);
+        const auto& stride_h = int64_t(_op->localOpConfig.getRoot()["strides"][0]);
+        const auto& stride_w = int64_t(_op->localOpConfig.getRoot()["strides"][1]);
+        const auto& padding_h = int64_t(_op->localOpConfig.getRoot()["padding_before"][0]);
+        const auto& padding_w = int64_t(_op->localOpConfig.getRoot()["padding_before"][1]);
+        const auto& kernel_size_h = cur_node->get_input_shape(1)[2];
+        const auto& kernel_size_w = cur_node->get_input_shape(1)[3];
+        const auto& in_shape = cur_node->get_input_shape(0);
+        const auto& out_shape = cur_node->get_output_shape(0);
+        const auto& channels = out_shape[1]; //NCHW
+        // activation node
+        input_gv.push_back(cur_node->get_in_edge(0)->get_src());
+        // weight node
+        input_gv.push_back(cur_node->get_in_edge(1)->get_src());
+
+        vector<size_t> bias_shape({1, channels});
+        auto bias_node = create_constant_node(dt, ori_device_id, bias_shape);
+        input_gv.push_back(bias_node);
+        auto integer_node = create_constant_node(dt, ori_device_id, 1);
+        input_gv.push_back(integer_node);
+        auto shift_node = create_constant_node(dt, ori_device_id, 1);
+        input_gv.push_back(shift_node);
+
+        int nthreads = 1;
+        for (auto i : out_shape)
+            nthreads *= i;
+        auto nthread_node = create_constant_node(dt, ori_device_id, nthreads);
+        input_gv.push_back(nthread_node);
+        auto channel_node = create_constant_node(dt, ori_device_id, channels);
+        input_gv.push_back(channel_node);
+        auto in_height_node = create_constant_node(dt, ori_device_id, in_shape[2]);
+        auto in_width_node = create_constant_node(dt, ori_device_id, in_shape[3]);
+        input_gv.push_back(in_height_node);
+        input_gv.push_back(in_width_node);
+        auto out_h_node = create_constant_node(dt, ori_device_id, out_shape[2]);
+        auto out_w_node = create_constant_node(dt, ori_device_id, out_shape[3]);
+        input_gv.push_back(out_h_node);
+        input_gv.push_back(out_w_node);
+        auto kernel_h_node = create_constant_node(dt, ori_device_id, kernel_size_h);
+        auto kernel_w_node = create_constant_node(dt, ori_device_id, kernel_size_w);
+        input_gv.push_back(kernel_h_node);
+        input_gv.push_back(kernel_w_node);
+        auto stride_h_node = create_constant_node(dt, ori_device_id, stride_h);
+        auto stride_w_node = create_constant_node(dt, ori_device_id, stride_w);
+        input_gv.push_back(stride_h_node);
+        input_gv.push_back(stride_w_node);
+        auto pad_h_node = create_constant_node(dt, ori_device_id, padding_h);
+        auto pad_w_node = create_constant_node(dt, ori_device_id, padding_w);
+        input_gv.push_back(pad_h_node);
+        input_gv.push_back(pad_w_node);
+        
+
+
+
     }
     void DotQuantizeOptimize8bit(std::shared_ptr<GNode> cur_node,
                                  NNFusion_DeviceType dt,

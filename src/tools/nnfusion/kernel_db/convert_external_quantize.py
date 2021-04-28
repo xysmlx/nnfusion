@@ -46,8 +46,8 @@ param_list = {
         'dtype': ['float*', 'float*', 'float*', "float*"]
     },
     "QuantizeDot": {
-        'symbol': ['input0', 'input1', 'input2', 'input3', 'input4', 'input5', 'output0'],
-        'dtype': ['float*', 'float*', 'float*', 'float*', 'float*', 'float*', "float*"]
+        'symbol': ['input0', 'input1', 'input2', 'input3', 'input4', 'input5', 'input6', 'output0'],
+        'dtype': ['float*', 'float*', 'float*', 'float*', 'float*', 'float*', 'float*', "float*"]
     },
     "QuantizeDotAdd": {
         'symbol': ['input0', 'input1', 'input2', 'input3', 'input4', 'input5', 'input6', 'input7', 'output0'],
