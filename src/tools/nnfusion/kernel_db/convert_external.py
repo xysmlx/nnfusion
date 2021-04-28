@@ -61,6 +61,22 @@ param_list = {
         'symbol': ['input0', 'input1', 'output0', 'input2'],
         'dtype': ['float*', 'float*', 'float*', 'float*']
     },
+    "Fused_DepthwiseConv2dNative_Relu": {
+        'symbol': ['input0', 'input1', 'output0'],
+        'dtype': ['float*', 'float*', 'float*']
+    },
+    "Fused_DepthwiseConv2dNative_Batchnorm": {
+        'symbol': ['input0', 'input1', 'output0', 'input2'],
+        'dtype': ['float*', 'float*', 'float*', 'float*']
+    },
+    "Fused_DepthwiseConv2dNative_Batchnorm_Relu": {
+        'symbol': ['input0', 'input1', 'output0', 'input2'],
+        'dtype': ['float*', 'float*', 'float*', 'float*']
+    },
+    "Fused_DepthwiseConv2dNative_Add_Relu": {
+        'symbol': ['input0', 'input1', 'output0', 'input2'],
+        'dtype': ['float*', 'float*', 'float*', 'float*']
+    },
     "AvgPool": {
         'symbol': ['input0', 'output0'],
         'dtype': ['float*', 'float*']
@@ -73,7 +89,7 @@ conv_family = ["Convolution", "Fused_Convolution_Relu"] + conv_augmented
 
 depthwise_conv_augmented = ["Fused_DepthwiseConv2dNative_Batchnorm",
                             "Fused_DepthwiseConv2dNative_Batchnorm_Relu", "Fused_DepthwiseConv2dNative_Add_Relu"]
-depthwise_conv_family = ["DepthwiseConv2dNative", "Fused_DepthwiseConv2dNative_Relu"] + conv_augmented
+depthwise_conv_family = ["DepthwiseConv2dNative", "Fused_DepthwiseConv2dNative_Relu"] + depthwise_conv_augmented
 
 
 def gen_key(data, dtype="float"):
