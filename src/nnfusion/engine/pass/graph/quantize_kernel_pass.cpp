@@ -293,7 +293,7 @@ public:
                 {
                 }
             }
-            else if (node->get_op_type() == "Conv2d")
+            else if (node->get_op_type() == "DepthwiseConv2dNative")
             {
                 if (quantize_bit == 8)
                 {
@@ -519,7 +519,7 @@ public:
         for(int i=2;i<input_gv.size();i++)
             m_graph->add_node(input_gv[i]);
 
-        auto quan_depth_conv = std::make_shared<op::QuantizeDepthConv>(8);
+        auto quan_depth_conv = std::make_shared<op::QuantizeDepthwiseConv2dNative>(8);
         auto quan_conv_node = std::make_shared<GNode>(quan_depth_conv, input_gv);
         quan_conv_node->Set<NNFusion_DeviceType>("DeviceType", move(dt));
         quan_conv_node->Set<int>("DeviceID", move(ori_device_id));
