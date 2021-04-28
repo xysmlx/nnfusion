@@ -31,13 +31,13 @@ REGISTER_OP(DepthwiseConv2dNative)
         bool is_nhwc = (data_format == "NHWC");
 
         const int64_t in_depth = is_nhwc ? input_shape[3] : input_shape[1];
-        NNFUSION_CHECK(in_depth == filter_shape[2]);
-        const int64_t depth_multiplier = filter_shape[3];
+        NNFUSION_CHECK(in_depth == filter_shape[0]);
+        const int64_t depth_multiplier = filter_shape[1];
         const int64_t out_depth = in_depth * depth_multiplier;
         const int64_t input_rows = is_nhwc ? input_shape[1] : input_shape[2];
         const int64_t input_cols = is_nhwc ? input_shape[2] : input_shape[3];
-        const int64_t filter_rows = filter_shape[0];
-        const int64_t filter_cols = filter_shape[1];
+        const int64_t filter_rows = filter_shape[2];
+        const int64_t filter_cols = filter_shape[3];
         const int64_t batch = input_shape[0];
 
         std::vector<int64_t> strides = op->localOpConfig.getRoot()["strides"];
@@ -90,15 +90,15 @@ REGISTER_OP(DepthwiseConv2dNative)
         const auto& stride_w = int64_t(_op->localOpConfig.getRoot()["strides"][1]);
         const auto& padding_h = int64_t(_op->localOpConfig.getRoot()["padding_before"][0]);
         const auto& padding_w = int64_t(_op->localOpConfig.getRoot()["padding_before"][1]);
-        const auto& kernel_size_h = curr->get_input_shape(1)[0];
-        const auto& kernel_size_w = curr->get_input_shape(1)[1];
+        const auto& kernel_size_h = curr->get_input_shape(1)[2];
+        const auto& kernel_size_w = curr->get_input_shape(1)[3];
         const auto& in_shape = curr->get_input_shape(0);
         const auto& out_shape = curr->get_output_shape(0);
         const std::string data_format = is_nhwc ? "nhwc" : "nchw";
         NNFUSION_CHECK(dilation_h == 1) << "Not support other dilation yet.";
         NNFUSION_CHECK(dilation_w == 1) << "Not support other dilation yet.";
         nnfusion::op::OpConfig::any config;
-        config["input1_layout"] = "[KH, KW, C, 0]";
+        config["input1_layout"] = "[C, 0, KH, KW]";
         config["output0_layout"] = is_nhwc ? "[N, HO, WO, C]" : "[N, C, HO, WO]";
         config["height"] = is_nhwc ? out_shape[1] : out_shape[2];
         config["width"] = is_nhwc ? out_shape[2] : out_shape[3];
