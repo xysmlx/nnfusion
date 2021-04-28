@@ -54,6 +54,7 @@
 #include "op/memory_copy.hpp"
 #include "op/non_zero.hpp"
 #include "op/one_hot.hpp"
+#include "op/pad.hpp"
 #include "op/pool.hpp"
 #include "op/range.hpp"
 #include "op/reduce.hpp"
@@ -211,6 +212,7 @@ namespace nnfusion
                 REGISTER_OPERATOR("Not", 1, TranslateUnaryOp<op::Not>);
                 REGISTER_OPERATOR("OneHot", 1, TranslateOneHotOp);
                 REGISTER_OPERATOR("Or", 1, TranslateBinaryOp<op::Or>);
+                REGISTER_OPERATOR("Pad", 2, TranslatePadOp);
                 REGISTER_OPERATOR("Pow", 1, TranslateBinaryOp<op::Power>);
                 //REGISTER_OPERATOR("PRelu", 1, prelu);
                 REGISTER_OPERATOR("Range", 11, TranslateRangeOp);
