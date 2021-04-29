@@ -82,9 +82,13 @@ param_list = {
         'dtype': ['float*', 'float*', 'float*']
     },
     "QuantizeDepthwiseConv2dNative": {
-        'symbol': ['input%d'%i for i in range(17)] +['output0'],
-        'dtype': ['float*']*18
-    }
+        'symbol': ['input%d'%i for i in range(5)] +['output0'],
+        'dtype': ['float*']*6
+    },
+    "QuantizeConvolution": {
+        'symbol': ['input0', 'input1', 'input2', 'input3', 'input4', 'input5', 'input6', 'input7', 'output0'],
+        'dtype': ['float*', 'float*', 'float*', 'float*', 'float*', 'float*', "float*", 'float*', "float*"]
+    },
 }
 
 conv_augmented = ["Fused_Convolution_Batchnorm",
@@ -174,6 +178,19 @@ def gen_key(data, dtype="float"):
         key += "".join(["CoordinateDiff{", ", ".join(str(i)
                                                      for i in parameters["padding_below_diff"]), "}"])
         key = key.replace(op_type, "DepthwiseConv2dNative")
+        key += "quantize" + str(data["in_quantize_bit"]) + 'bit_' + str(data["out_quantize_bit"]) + "bit"
+        if "identifier_suffix" in data:
+            key += data["identifier_suffix"]
+        if "identifier_prefix" in data:
+            key = data['identifier_prefix'] + key
+    elif  op_type == 'QuantizeConvolution':
+        key += "".join(["Strides{", ", ".join(str(i)
+                                              for i in parameters["window_movement_strides"]), "}"])
+        key += "".join(["Strides{", ", ".join(str(i)
+                                              for i in parameters["window_dilation_strides"]), "}"])
+        key += "".join(["CoordinateDiff{", ", ".join(str(i)
+                                                     for i in parameters["padding_below_diff"]), "}"])
+        key = key.replace(op_type, "Convolution")
         key += "quantize" + str(data["in_quantize_bit"]) + 'bit_' + str(data["out_quantize_bit"]) + "bit"
         if "identifier_suffix" in data:
             key += data["identifier_suffix"]
@@ -275,10 +292,34 @@ def gen_config(op_type, kernel, shared_memory, num_sync):
         }
     
         # config["in_shape"].append(config["out_shape"][0])
-        input_paras = ['float* __restrict__ input%d'%i for i in range(17)]
+        input_paras = ['float* __restrict__ input%d'%i for i in range(5)]
         out_paras = ['float* __restrict__ output0']
         config[
             "function_signature"] = "extern \"C\" __global__  void (%s)" %(','.join(input_paras+out_paras))
+
+
+    elif (op_type=="QuantizeConvolution"):
+        if "identifier_suffix" in kernel["parameters"]:
+            config["identifier_suffix"] = kernel["parameters"]["identifier_suffix"]
+        if 'identifier_prefix' in kernel['parameters']:
+            config['identifier_prefix'] = kernel['parameters']['identifier_prefix']
+        config["in_quantize_bit"] = kernel["parameters"]["in_quantize_bit"]
+        config["out_quantize_bit"] = kernel["parameters"]["out_quantize_bit"]
+        config["in_shape"] = [kernel["parameters"]
+                              ["input_shape"], kernel["parameters"]["filter_shape"]]
+        config["out_shape"] = [kernel["parameters"]["output_shape"]]
+        config["parameters"] = {
+            "window_movement_strides": kernel["parameters"]["window_movement_strides"],
+            "window_dilation_strides": kernel["parameters"]["window_dilation_strides"],
+            "padding_below_diff": kernel["parameters"]["padding_below_diff"]
+        }
+        # import pdb; pdb.set_trace()
+        # config["in_shape"].append(config["out_shape"][0])
+        input_paras = ['float* __restrict__ input%d'%i for i in range(8)]
+        out_paras = ['float* __restrict__ output0']
+        config[
+            "function_signature"] = "extern \"C\" __global__  void (%s)" %(','.join(input_paras+out_paras))
+
 
 
     else:

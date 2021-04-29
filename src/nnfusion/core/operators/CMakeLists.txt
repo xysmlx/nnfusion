@@ -90,6 +90,7 @@ set(SRC
     op_define/sparsedot.cpp
     op_define/quantizedot.cpp
     op_define/quantize_depth_conv.cpp
+    op_define/quantizeconv1x1.cpp
     op_define/bitconverter.cpp
     ${generic_op_define}
 )

@@ -106,6 +106,8 @@
 #include "nnfusion/core/operators/op_define/quantizedot.hpp"
 #include "nnfusion/core/operators/op_define/bitconverter.hpp"
 #include "nnfusion/core/operators/op_define/quantize_depth_conv.hpp"
+#include "nnfusion/core/operators/op_define/quantizeconv1x1.hpp"
+
 
 #define ktrace()                                                                                   \
     {                                                                                              \

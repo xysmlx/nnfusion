@@ -1,8 +1,5 @@
 __global__ void DepthConvForwardNHWC(
-    float*  input0, float* input1, float* input2, float* input3, float* input4,
-    float*  input5, float* input6, float* input7, float* input8, float* input9,
-    float*  input10, float* input11, float* input12, float* input13, float* input14,
-    float*  input15, float* input16, float * output0) {
+    float*  input0, float* input1, float* input2, float * input3, float *input4, float * output0) {
 
     
     uint8_t * bottom_data = reinterpret_cast<uint8_t*>(input0);
@@ -10,19 +7,19 @@ __global__ void DepthConvForwardNHWC(
     const int * bias =  reinterpret_cast<int*>(input2);
     const int integer = (int)(*input3);
     const int shift = (int)(*input4);
-    const int nthreads = (int)(*input5);
-    const int channels = (int)(*input6);
-    const int height = (int)(*input7);
-    const int width = (int)(*input8);
-    const int conved_height = (int)(*input9);
-    const int conved_width = (int)(*input10);
+    const int nthreads = 6422528;
+    const int channels = 256;
+    const int height = 28;
+    const int width = 28;
+    const int conved_height = 14;
+    const int conved_width = 14;
 
-    const int kernel_h = (int)(*input11);
-    const int kernel_w = (int)(*input12);
-    const int stride_h = (int)(*input13);
-    const int stride_w = (int)(*input14);
-    const int pad_h = (int)(*input15);
-    const int pad_w = (int)(*input16);
+    const int kernel_h = 3;
+    const int kernel_w = 3;
+    const int stride_h = 2;
+    const int stride_w = 2;
+    const int pad_h = 1;
+    const int pad_w = 1;
     uint8_t * top_data = reinterpret_cast<uint8_t*>(output0);
 
 
@@ -79,15 +76,4 @@ __global__ void DepthConvForwardNHWC(
     aveval = ((aveval * integer) >> shift);
     top_data[index] = aveval > 0 ? (uint8_t)aveval:0;
 }
-} 
- 
- 
- 
- 
- 
- 
- 
- 
- 
- 
- 
+}

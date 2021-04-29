@@ -20,6 +20,7 @@ def inject(jsonf, cuf):
         code = f.read()
 
     data[0]["code"] = code
+    print(data[0]["code"])
     with open(jsonf, "w") as f:
         json.dump(data, f)
 

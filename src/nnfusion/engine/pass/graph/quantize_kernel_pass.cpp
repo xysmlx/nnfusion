@@ -300,6 +300,17 @@ public:
                     DepthConvQuantizeOptimize8bit(node, n_device_type, kernel_entry, fused_op);
                 }
             }
+            else if (node->get_op_type() == "Convolution"){
+
+                int kernel_h = node->get_input_shape(1)[2];
+                int kernel_w = node->get_input_shape(1)[3];
+                if (kernel_h!=1 ||kernel_w!=1)
+                    continue;
+                if(quantize_bit == 8)
+                {
+                    Conv1x1QuantizeOptimize8bit(node, n_device_type, kernel_entry, fused_op);
+                }
+            }
             // Get the corresponding kernel from the Kernel Cache
         }
         return true;
@@ -380,6 +391,81 @@ public:
         constant_node->Set<NNFusion_DeviceType>("DeviceType", move(dt));
         constant_node->Set<int>("DeviceID", move(ori_device_id));
         return constant_node;
+    }
+
+
+    void load_quantized_weight(std::shared_ptr<GNode> weight_node){
+        //
+    }
+
+    void Conv1x1QuantizeOptimize8bit(std::shared_ptr<GNode> cur_node,
+                                 NNFusion_DeviceType dt,
+                                 nnfusion::cache::KernelEntry_p kernel_entry,
+                                 vector<std::shared_ptr<GNode>> fused_ops)
+    {
+        // need use the NhwC format, the depthwise kernel is also in depth-wise format 
+        std::cout << "In Conv1x1QuantizeOptimize8bit"<<std::endl;
+        int ori_device_id = (*cur_node)["DeviceID"];
+        vector<std::shared_ptr<GNode>> need_remove;
+        vector<std::shared_ptr<GNode>> input_gv;
+        auto activation_node = cur_node->get_in_edge(0)->get_src();
+        auto weight_node = cur_node->get_in_edge(1)->get_src();
+        load_quantized_weight(weight_node);
+        input_gv.push_back(activation_node);
+        input_gv.push_back(weight_node);
+        int tmpvalue;
+        auto w_mul_zp_node = create_constant_node(dt, ori_device_id, tmpvalue);
+        auto w_zp_node = create_constant_node(dt, ori_device_id, tmpvalue);
+        auto zp_acc_node = create_constant_node(dt, ori_device_id, tmpvalue);
+        auto scale_integer_node = create_constant_node(dt, ori_device_id, tmpvalue);
+        auto scale_shift_node = create_constant_node(dt, ori_device_id, tmpvalue);
+        auto output_shape = cur_node->get_output_shape(0);
+        auto bias_node = create_constant_node(dt, ori_device_id, output_shape);
+        input_gv.push_back(w_mul_zp_node);
+        input_gv.push_back(w_zp_node);
+        input_gv.push_back(zp_acc_node);
+        input_gv.push_back(scale_integer_node);
+        input_gv.push_back(scale_shift_node);
+        input_gv.push_back(bias_node);
+        for (int i=2;i<input_gv.size();i++)
+            m_graph->add_node(input_gv[i]);
+        auto conv1x1 = std::make_shared<op::QuantizeConv1x1>(8);
+        auto conv1x1_node = std::make_shared<GNode>(conv1x1, input_gv);
+        conv1x1_node->Set<NNFusion_DeviceType>("DeviceType", move(dt));
+        conv1x1_node->Set<int>("DeviceID", move(ori_device_id));
+        for(int i=0;i<input_gv.size();i++){
+            m_graph->add_edge(input_gv.at(i), 0, conv1x1_node, i);
+        }
+        auto last_node = cur_node;
+        if(fused_ops.size())
+            last_node = fused_ops[fused_ops.size()-1];
+        
+        auto ori_outputs = last_node->get_outputs();
+        //???
+        for (int i = 0; i < ori_outputs.size(); i++)
+        {
+            conv1x1_node->set_output(i, ori_outputs[i]);
+        }
+        fused_ops.push_back(cur_node);
+        m_graph->replace_node(last_node, conv1x1_node, false);
+        for(auto tmp_node:fused_ops){
+            if(tmp_node!=last_node){
+                m_graph->remove_node(tmp_node);
+            }
+        }
+        std::shared_ptr<KernelContext> ctx(new KernelContext(conv1x1_node));
+        auto kernel = std::make_shared<kernels::cuda::CacheCudaEmitter>(ctx, kernel_entry);
+        KernelEmitter::Pointer pkernel = kernel;
+
+        // need to emit the source before bind the kernel
+        kernel->get_or_emit_source();
+        (*conv1x1_node)["Kernel_Selection_Result"] = std::make_pair(dt, pkernel);
+        std::cout << "###############################" << std::endl;
+        // std::cout << kernel->get_or_emit_source()->body_unit->get_code() << std::endl;
+        // std::cout << kernel->get_or_emit_source()->signature_unit->get_code() << std::endl;
+        //exit(-1);
+        std::cout << "Bind the Quantized kernel!" << std::endl;
+
     }
     void DepthConvQuantizeOptimize8bit(std::shared_ptr<GNode> cur_node,
                                  NNFusion_DeviceType dt,
@@ -487,33 +573,33 @@ public:
         auto shift_node = create_constant_node(dt, ori_device_id, 1);
         input_gv.push_back(shift_node);
 
-        int nthreads = 1;
-        for (auto i : out_shape)
-            nthreads *= i;
-        auto nthread_node = create_constant_node(dt, ori_device_id, nthreads);
-        input_gv.push_back(nthread_node);
-        auto channel_node = create_constant_node(dt, ori_device_id, channels);
-        input_gv.push_back(channel_node);
-        auto in_height_node = create_constant_node(dt, ori_device_id, in_shape[2]);
-        auto in_width_node = create_constant_node(dt, ori_device_id, in_shape[3]);
-        input_gv.push_back(in_height_node);
-        input_gv.push_back(in_width_node);
-        auto out_h_node = create_constant_node(dt, ori_device_id, out_shape[2]);
-        auto out_w_node = create_constant_node(dt, ori_device_id, out_shape[3]);
-        input_gv.push_back(out_h_node);
-        input_gv.push_back(out_w_node);
-        auto kernel_h_node = create_constant_node(dt, ori_device_id, kernel_size_h);
-        auto kernel_w_node = create_constant_node(dt, ori_device_id, kernel_size_w);
-        input_gv.push_back(kernel_h_node);
-        input_gv.push_back(kernel_w_node);
-        auto stride_h_node = create_constant_node(dt, ori_device_id, stride_h);
-        auto stride_w_node = create_constant_node(dt, ori_device_id, stride_w);
-        input_gv.push_back(stride_h_node);
-        input_gv.push_back(stride_w_node);
-        auto pad_h_node = create_constant_node(dt, ori_device_id, padding_h);
-        auto pad_w_node = create_constant_node(dt, ori_device_id, padding_w);
-        input_gv.push_back(pad_h_node);
-        input_gv.push_back(pad_w_node);
+        // int nthreads = 1;
+        // for (auto i : out_shape)
+        //     nthreads *= i;
+        // auto nthread_node = create_constant_node(dt, ori_device_id, nthreads);
+        // input_gv.push_back(nthread_node);
+        // auto channel_node = create_constant_node(dt, ori_device_id, channels);
+        // input_gv.push_back(channel_node);
+        // auto in_height_node = create_constant_node(dt, ori_device_id, in_shape[2]);
+        // auto in_width_node = create_constant_node(dt, ori_device_id, in_shape[3]);
+        // input_gv.push_back(in_height_node);
+        // input_gv.push_back(in_width_node);
+        // auto out_h_node = create_constant_node(dt, ori_device_id, out_shape[2]);
+        // auto out_w_node = create_constant_node(dt, ori_device_id, out_shape[3]);
+        // input_gv.push_back(out_h_node);
+        // input_gv.push_back(out_w_node);
+        // auto kernel_h_node = create_constant_node(dt, ori_device_id, kernel_size_h);
+        // auto kernel_w_node = create_constant_node(dt, ori_device_id, kernel_size_w);
+        // input_gv.push_back(kernel_h_node);
+        // input_gv.push_back(kernel_w_node);
+        // auto stride_h_node = create_constant_node(dt, ori_device_id, stride_h);
+        // auto stride_w_node = create_constant_node(dt, ori_device_id, stride_w);
+        // input_gv.push_back(stride_h_node);
+        // input_gv.push_back(stride_w_node);
+        // auto pad_h_node = create_constant_node(dt, ori_device_id, padding_h);
+        // auto pad_w_node = create_constant_node(dt, ori_device_id, padding_w);
+        // input_gv.push_back(pad_h_node);
+        // input_gv.push_back(pad_w_node);
 
 
         for(int i=2;i<input_gv.size();i++)
@@ -712,7 +798,7 @@ public:
                 float* scale_integer_data = (float*)malloc(sizeof(float));
                 float* scale_shift_data = (float*)malloc(sizeof(float));
                 float* bias_data =
-                    (float*)malloc(sizeof(float) * weight_count); // TODO use the correct size here
+                    (float*)malloc(sizeof(float) * max(weight_count, out_count)); // TODO use the correct size here
                 float* output_zp_data = (float*)malloc(sizeof(float));
                 auto dense_op = std::dynamic_pointer_cast<op::Dot>(cur_node->get_op_ptr());
                 // quantized weight of the weight
