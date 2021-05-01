@@ -199,6 +199,7 @@ public:
         }
         return fused_op;
     }
+
     vector<std::shared_ptr<GNode>> get_conv_fuse_option(std::shared_ptr<GNode> conv_node)
     {
         vector<std::shared_ptr<GNode>> fused_op;
@@ -207,16 +208,20 @@ public:
             return vector<std::shared_ptr<GNode>>();
         }
         auto son_node = succs[0];
+        
         if (son_node->get_op_type().find("BatchNorm")!=std::string::npos){
             fused_op.push_back(son_node);
             auto grandsons = find_successors(son_node);
             if (grandsons.size()>0){
-                if (grandsons[0]->get_op_type()=="Relu"){
+                for(auto tmp_node:grandsons)
+                    std::cout<<" ### "<<tmp_node->get_op_type()<<" ";
+                std::cout<<std::endl;
+                if (grandsons[0]->get_op_type()=="Relu" || grandsons[0]->get_op_type()=="Swish" ||grandsons[0]->get_op_type()=="Sigmoid"){
                     fused_op.push_back(grandsons[0]);
-                }
+                } 
             }
 
-        }else if(son_node->get_op_type() == "Relu"){
+        }else if(son_node->get_op_type()=="Relu" || son_node->get_op_type()=="Swish" ||son_node->get_op_type()=="Sigmoid"){
             fused_op.push_back(son_node);
         }
         return fused_op;

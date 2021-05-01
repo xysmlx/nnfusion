@@ -4,13 +4,12 @@ import os
 import argparse
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--all', default=False, type=bool)
+parser.add_argument('--all', default=False, action='store_true')
+parser.add_argument('--prefix', default=None)
 parser.add_argument('--json', default=None, type=str)
 parser.add_argument('--cu', default=None, type=str)
 args = parser.parse_args()
 
-PREFIX = './kernel'
-files = os.listdir(PREFIX)
 
 def inject(jsonf, cuf):
 
@@ -20,11 +19,14 @@ def inject(jsonf, cuf):
         code = f.read()
 
     data[0]["code"] = code
-    print(data[0]["code"])
+    # print(data[0]["code"])
     with open(jsonf, "w") as f:
         json.dump(data, f)
 
 if args.all:
+    PREFIX = args.prefix
+    files = os.listdir(PREFIX)
+
     for f in files:
         name = os.path.splitext(f)[0]
         suffix = os.path.splitext(f)[-1]
@@ -34,7 +36,7 @@ if args.all:
             assert os.path.exists(jsonf)
             assert os.path.exists(cuf)
 
-            print(jsonf, cuf)
+            # print(jsonf, cuf)
             inject(jsonf, cuf)
             os.system("python ../src/tools/nnfusion/kernel_db/convert_external_quantize.py %s"%jsonf)
 else:
