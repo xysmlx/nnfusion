@@ -95,6 +95,7 @@ CREATE TABLE IF NOT EXISTS KernelCache(
                   "BitConverter",
                                "QuantizeDepthwiseConv2dNative", 
                                "QuantizeConvolution",
+                               "BlockQuantizeConvolution",
                               "Convolution",
                               "DepthwiseConv2dNative",
                               "AvgPool",

@@ -154,11 +154,15 @@ public:
         // Generate the new identifier: ori_identifier + ${in_quantize}bit+${out_quatize}bit
 
         const std::vector<std::string> SUPPORT_PLATFORM = {"CUDA_GPU"};
+        string prefix = "BlockQuantize";
+        if (csr_row[node->get_name()].size()==0){
+            prefix = "Quantize";
+        }
         if (identifier != "" &&
             find(SUPPORT_PLATFORM.begin(), SUPPORT_PLATFORM.end(), get_device_str(devtype)) !=
                 SUPPORT_PLATFORM.end())
         {
-            identifier = "BlockQuantize" + identifier + "quantize" + to_string(quantize_bit) + "bit_" +
+            identifier = prefix + identifier + "quantize" + to_string(quantize_bit) + "bit_" +
                          to_string(succ_bit) + "bit";
 
             for (auto tmp_node : fused_op)
@@ -263,7 +267,7 @@ public:
                         std::cout<<std::endl;
                     }
                 }
-            }else if(node->get_op_type() == "Convlolution"){
+            }else if(node->get_op_type() == "Convolution"){
                 auto act_node = node->get_in_edge(0)->get_src();
                 auto act_shape = act_node->get_output_shape(0);
                 int M = act_shape[0]*act_shape[2]*act_shape[3];
@@ -320,12 +324,88 @@ public:
                     continue;
                 if(quantize_bit == 8)
                 {
-                    Conv1x1QuantizeOptimize8bit(node, n_device_type, kernel_entry, fused_op);
+                    if(csr_row[node->get_name()].size()>0)
+                        Conv1x1QuantizeOptimize8bit(node, n_device_type, kernel_entry, fused_op);
+                    else{
+                        NoBlockConv1x1QuantizeOptimize8bit(node, n_device_type, kernel_entry, fused_op);
+                    }
                 }
             }
             // Get the corresponding kernel from the Kernel Cache
         }
         return true;
+    }
+
+
+
+    void NoBlockConv1x1QuantizeOptimize8bit(std::shared_ptr<GNode> cur_node,
+                                 NNFusion_DeviceType dt,
+                                 nnfusion::cache::KernelEntry_p kernel_entry,
+                                 vector<std::shared_ptr<GNode>> fused_ops)
+    {
+        // need use the NhwC format, the depthwise kernel is also in depth-wise format 
+        std::cout << "In Conv1x1QuantizeOptimize8bit"<<std::endl;
+        int ori_device_id = (*cur_node)["DeviceID"];
+        vector<std::shared_ptr<GNode>> need_remove;
+        vector<std::shared_ptr<GNode>> input_gv;
+        auto activation_node = cur_node->get_in_edge(0)->get_src();
+        auto weight_node = cur_node->get_in_edge(1)->get_src();
+        load_quantized_weight(weight_node);
+        input_gv.push_back(activation_node);
+        input_gv.push_back(weight_node);
+        int tmpvalue;
+        auto w_mul_zp_node = create_constant_node(dt, ori_device_id, tmpvalue);
+        auto w_zp_node = create_constant_node(dt, ori_device_id, tmpvalue);
+        auto zp_acc_node = create_constant_node(dt, ori_device_id, tmpvalue);
+        auto scale_integer_node = create_constant_node(dt, ori_device_id, tmpvalue);
+        auto scale_shift_node = create_constant_node(dt, ori_device_id, tmpvalue);
+        auto output_shape = cur_node->get_output_shape(0);
+        auto bias_node = create_constant_node(dt, ori_device_id, output_shape);
+        input_gv.push_back(w_mul_zp_node);
+        input_gv.push_back(w_zp_node);
+        input_gv.push_back(zp_acc_node);
+        input_gv.push_back(scale_integer_node);
+        input_gv.push_back(scale_shift_node);
+        input_gv.push_back(bias_node);
+        for (int i=2;i<input_gv.size();i++)
+            m_graph->add_node(input_gv[i]);
+        auto conv1x1 = std::make_shared<op::QuantizeConv1x1>(8);
+        auto conv1x1_node = std::make_shared<GNode>(conv1x1, input_gv);
+        conv1x1_node->Set<NNFusion_DeviceType>("DeviceType", move(dt));
+        conv1x1_node->Set<int>("DeviceID", move(ori_device_id));
+        for(int i=0;i<input_gv.size();i++){
+            m_graph->add_edge(input_gv.at(i), 0, conv1x1_node, i);
+        }
+        auto last_node = cur_node;
+        if(fused_ops.size())
+            last_node = fused_ops[fused_ops.size()-1];
+        
+        auto ori_outputs = last_node->get_outputs();
+        //???
+        for (int i = 0; i < ori_outputs.size(); i++)
+        {
+            conv1x1_node->set_output(i, ori_outputs[i]);
+        }
+        fused_ops.push_back(cur_node);
+        m_graph->replace_node(last_node, conv1x1_node, false);
+        for(auto tmp_node:fused_ops){
+            if(tmp_node!=last_node){
+                m_graph->remove_node(tmp_node);
+            }
+        }
+        std::shared_ptr<KernelContext> ctx(new KernelContext(conv1x1_node));
+        auto kernel = std::make_shared<kernels::cuda::CacheCudaEmitter>(ctx, kernel_entry);
+        KernelEmitter::Pointer pkernel = kernel;
+
+        // need to emit the source before bind the kernel
+        kernel->get_or_emit_source();
+        (*conv1x1_node)["Kernel_Selection_Result"] = std::make_pair(dt, pkernel);
+        std::cout << "###############################" << std::endl;
+        // std::cout << kernel->get_or_emit_source()->body_unit->get_code() << std::endl;
+        // std::cout << kernel->get_or_emit_source()->signature_unit->get_code() << std::endl;
+        //exit(-1);
+        std::cout << "Bind the Quantized kernel!" << std::endl;
+
     }
 
     std::shared_ptr<GNode> create_constant_node(NNFusion_DeviceType dt, int ori_device_id, int value=0)

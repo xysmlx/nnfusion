@@ -95,6 +95,7 @@ public:
             // to use the sparse kernel
             if (node->get_op_type() == "Dot")
             {
+                std::cout<<"Try to optimize "<<node->get_name()<<std::endl;
                 DotSparseOptimize(node);
             }
             else if (node->get_op_type() == "Conv2d")
@@ -171,6 +172,7 @@ private:
         for (auto in_edge : cur_node->get_in_edges())
         {
             auto src_node = in_edge->get_src();
+            std::cout<<"Dot src node: "<< src_node->get_op_type()<<" "<<src_node->get_name()<<std::endl;
             if (src_node->is_constant())
             {
                 // Get the sparsity ratio, if sparsity ratio is larger than a threshold
@@ -184,6 +186,7 @@ private:
                                               nnfusion::shape_size(m_shape),
                                               sparse_threshold);
                 // if sparsity ratio is too low then it's not worth
+                std::cout<<" Sparsity Ratio: "<<sparsity_ratio<<std::endl;
                 if (sparsity_ratio < 0.9)
                     continue;
                 std::shared_ptr<vector<int32_t>> row_idx, col_idx;

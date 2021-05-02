@@ -89,6 +89,10 @@ param_list = {
         'symbol': ['input0', 'input1', 'input2', 'input3', 'input4', 'input5', 'input6', 'input7', 'output0'],
         'dtype': ['float*', 'float*', 'float*', 'float*', 'float*', 'float*', "float*", 'float*', "float*"]
     },
+    "BlockQuantizeConvolution": {
+        'symbol': ['input0', 'input1', 'input2', 'input3', 'input4', 'input5', 'input6', 'output0'],
+        'dtype': ['float*', 'float*', 'float*', 'float*', 'float*', 'float*', "float*", "float*"]
+    },
 }
 
 conv_augmented = ["Fused_Convolution_Batchnorm",
@@ -183,7 +187,7 @@ def gen_key(data, dtype="float"):
             key += data["identifier_suffix"]
         if "identifier_prefix" in data:
             key = data['identifier_prefix'] + key
-    elif  op_type == 'QuantizeConvolution':
+    elif  'QuantizeConvolution' in op_type:
         key += "".join(["Strides{", ", ".join(str(i)
                                               for i in parameters["window_movement_strides"]), "}"])
         key += "".join(["Strides{", ", ".join(str(i)
@@ -298,7 +302,7 @@ def gen_config(op_type, kernel, shared_memory, num_sync):
             "function_signature"] = "extern \"C\" __global__  void (%s)" %(','.join(input_paras+out_paras))
 
 
-    elif (op_type=="QuantizeConvolution"):
+    elif ("QuantizeConvolution" in op_type):
         if "identifier_suffix" in kernel["parameters"]:
             config["identifier_suffix"] = kernel["parameters"]["identifier_suffix"]
         if 'identifier_prefix' in kernel['parameters']:
@@ -315,7 +319,7 @@ def gen_config(op_type, kernel, shared_memory, num_sync):
         }
         # import pdb; pdb.set_trace()
         # config["in_shape"].append(config["out_shape"][0])
-        input_paras = ['float* __restrict__ input%d'%i for i in range(8)]
+        input_paras = ['float* __restrict__ input%d'%i for i in range(len(param_list[op_type]['symbol'])-1)]
         out_paras = ['float* __restrict__ output0']
         config[
             "function_signature"] = "extern \"C\" __global__  void (%s)" %(','.join(input_paras+out_paras))
