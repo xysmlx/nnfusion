@@ -48,6 +48,16 @@ cuda::DepthwiseConv2dNative::DepthwiseConv2dNative(shared_ptr<KernelContext> ctx
     args.out_cols = is_nhwc ? output_shape[2] : output_shape[3];
     args.out_depth = out_depth;
     args.num_outputs = shape_size(output_shape);
+
+    // for kernel codegen
+    std::ofstream fout;
+    std::stringstream codegen_tag;
+    codegen_tag << "depthwise_convolution_op_float" << "|i+" << join(input_shape, "_") << "|w+"
+                << join(filter_shape, "_") << "|o+" << join(output_shape, "_") << "|ws+"
+                << join(strides, "_") << "|p+" << join(padding_before, "_");
+    fout.open("/tmp/nnfusion_rt_depthwise_conv2d_kernels.txt", std::ios_base::app);
+    fout << codegen_tag.str() << std::endl;
+    fout.close();
 }
 
 LanguageUnit_p cuda::DepthwiseConv2dNative::emit_function_body()
