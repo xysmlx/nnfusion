@@ -43,6 +43,19 @@ namespace nnfusion
                           static_pointer_cast<nnfusion::op::GenericOp>(ctx->gnode->get_op_ptr()))
                 {
                     GENERIC_OP_LOGGING();
+
+                    // for kernel codegen
+                    const nnfusion::Shape& input_shape_0 = m_context->inputs[0]->get_shape();
+                    const nnfusion::Shape& input_shape_1 = m_context->inputs[1]->get_shape();
+                    const nnfusion::Shape& out_shape = m_context->outputs[1]->get_shape();
+                    std::ofstream fout;
+                    std::stringstream codegen_tag;
+                    codegen_tag << "cublas_batch_matmul_op_float32"
+                                << "|arg0_shape+" << join(input_shape_0, "_") << "|arg1_shape+"
+                                << join(input_shape_1, "_") << "|out_shape+" << join(out_shape, "_");
+                    fout.open("/tmp/nnfusion_rt_batch_matmul_kernels.txt", std::ios_base::app);
+                    fout << codegen_tag.str() << std::endl;
+                    fout.close();
                 }
 
                 LanguageUnit_p emit_function_body() override
