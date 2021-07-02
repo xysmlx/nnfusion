@@ -152,7 +152,7 @@ private:
             auto fetched = kernel_db->fetch_all(identifier, "CUDA_GPU");
             for (auto fetched_kernel : fetched)
             {
-                if (fetched_kernel->source == "External")
+                if (fetched_kernel->source == "External" || fetched_kernel->source == "Compression")
                 {
                     if (fetched_kernel->tags.find("BlockCudaEmitter") != fetched_kernel->tags.end() ||
                         fetched_kernel->tags.find("CudaEmitter") != fetched_kernel->tags.end())

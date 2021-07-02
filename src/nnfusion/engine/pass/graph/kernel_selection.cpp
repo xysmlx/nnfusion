@@ -348,6 +348,24 @@ pair<NNFusion_DeviceType, kernels::KernelEmitter::Pointer>
             }
         }
 
+        { // for bert and mobilenet
+            for (auto kernel_entry : fetched)
+            {
+                if (kernel_entry->source == "Compression")
+                {
+                    if (kernel_entry->tags.find("CudaEmitter") != kernel_entry->tags.end())
+                    {
+                        auto kernel =
+                            std::make_shared<kernels::cuda::CacheCudaEmitter>(ctx, kernel_entry);
+                        if (kernel->get_or_emit_source())
+                        {
+                            return std::make_pair(devtype, kernel);
+                        }
+                    }
+                }
+            }
+        }
+
         // emit Antares kernels: select the fastest tuned kernel
         {
             nnfusion::cache::KernelEntry_p kernel_entry = nullptr;
