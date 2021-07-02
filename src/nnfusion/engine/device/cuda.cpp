@@ -6,6 +6,7 @@
 
 #include "nnfusion/engine/pass/graph/assign_async_info_pass.hpp"
 #include "nnfusion/engine/pass/graph/assign_layout_pass.hpp"
+#include "nnfusion/engine/pass/graph/autocompression_pass.hpp"
 #include "nnfusion/engine/pass/graph/autodiff_pass.hpp"
 #include "nnfusion/engine/pass/graph/batchnorm_inference_folding_pass.hpp"
 #include "nnfusion/engine/pass/graph/bertfusion_pass.hpp"
@@ -65,6 +66,7 @@ CudaEngine::CudaEngine()
 
     // Kernel selection
     g_passes->push_back(make_shared<DefaultGNodeDeviceDispatcher>());
+    g_passes->push_back(make_shared<AutoCompressionPass>());
     g_passes->push_back(make_shared<KernelTuning>());
     g_passes->push_back(make_shared<ProfilingBasedKernelSelector>());
     g_passes->push_back(make_shared<FetchBasedSelector>());
