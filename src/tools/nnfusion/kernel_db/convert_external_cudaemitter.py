@@ -307,10 +307,10 @@ if __name__ == '__main__':
 
         default_tags = ""
         default_tags += "KernelEmitter,CudaEmitter"
-        if (op_type == "Dot"):
-            # Todo: move the transpose information into identifier
-            default_tags += kernel["parameters"]["transpose_A"] * \
-                ",transA" + kernel["parameters"]["transpose_B"]*",transB"
+        # if (op_type == "Dot"):
+        #     # Todo: move the transpose information into identifier
+        #     default_tags += kernel["parameters"]["transpose_A"] * \
+        #         ",transA" + kernel["parameters"]["transpose_B"]*",transB"
 
         # apply rules that every 32 threads will be formed as a warp
         # resource = math.ceil(

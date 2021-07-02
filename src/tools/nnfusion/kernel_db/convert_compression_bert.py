@@ -199,7 +199,7 @@ def insert_db(name, resource, platform="CUDA_GPU", tags="", profile="Tesla V100-
     # function_dict.update({"num_syncthreads": data["num_syncthreads"]})
     function = json.dumps(function_dict)
 
-    miscs_dict = data["miscs"]
+    miscs_dict = {}
     profile_dict = {"time": profile, "resource": resource}
     miscs_dict.update({"external_profile": profile_dict})
     miscs = json.dumps(miscs_dict)
@@ -255,7 +255,7 @@ if __name__ == '__main__':
         # config["num_syncthreads"] = num_sync
         config["function_body"] = func_body
         config["function_comment"] = func_comment
-        config["miscs"] = kernel["miscs"]
+        # config["miscs"] = kernel["miscs"]
 
         # feel free to customize the repo name you want
         name = kernel["tvm_func_name"].replace("_kernel0", "")
