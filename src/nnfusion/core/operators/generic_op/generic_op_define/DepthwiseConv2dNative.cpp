@@ -46,8 +46,8 @@ REGISTER_OP(DepthwiseConv2dNative)
 
         std::vector<int64_t> strides = op->localOpConfig.getRoot()["strides"];
         NNFUSION_CHECK(strides.size() == 2);
-        const int64_t out_rows = (input_rows + padding_h - filter_rows) / strides[0] + 1;
-        const int64_t out_cols = (input_cols + padding_w - filter_cols) / strides[1] + 1;
+        const int64_t out_rows = (input_rows + 2 * padding_h - filter_rows) / strides[0] + 1;
+        const int64_t out_cols = (input_cols + 2 * padding_w - filter_cols) / strides[1] + 1;
 
         Shape output_shape(
             is_nhwc
